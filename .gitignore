@@ -1,0 +1,18 @@
+# Build
+bin/
+obj/
+
+# Published builds
+release_single/
+publish/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# Logs
+*.log
