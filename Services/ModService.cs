@@ -189,6 +189,37 @@ public class ModService
             Directory.Delete(mod.FolderPath, true);
     }
 
+    public void ApplyProfile(string gameFolder, Profile profile)
+    {
+        var modsPath = GetModsPath(gameFolder);
+        var disabledPath = GetDisabledModsPath(gameFolder);
+
+        Directory.CreateDirectory(modsPath);
+        Directory.CreateDirectory(disabledPath);
+
+        foreach (var modState in profile.Mods)
+        {
+            var modPath = Path.Combine(modsPath, modState.Name);
+            var disabledPath2 = Path.Combine(disabledPath, modState.Name);
+
+            var isInMods = Directory.Exists(modPath);
+            var isInDisabled = Directory.Exists(disabledPath2);
+
+            if (modState.IsEnabled && isInDisabled)
+            {
+                if (Directory.Exists(modPath))
+                    Directory.Delete(modPath, true);
+                Directory.Move(disabledPath2, modPath);
+            }
+            else if (!modState.IsEnabled && isInMods)
+            {
+                if (Directory.Exists(disabledPath2))
+                    Directory.Delete(disabledPath2, true);
+                Directory.Move(modPath, disabledPath2);
+            }
+        }
+    }
+
     public string FindGameFolder()
     {
         // Попытка найти игру в типичных местах

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,6 +16,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly SettingsService _settingsService;
     private readonly ModService _modService;
+    private readonly ProfileService _profileService;
 
     [ObservableProperty]
     private string _gameFolderPath = string.Empty;
@@ -31,14 +34,32 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    [ObservableProperty]
+    private ObservableCollection<string> _profiles = new();
+
+    [ObservableProperty]
+    private string _selectedProfile = string.Empty;
+
     public bool IsNotBusy => !IsBusy;
 
     public MainViewModel()
     {
         _settingsService = new SettingsService();
         _modService = new ModService();
+        _profileService = new ProfileService();
 
         LoadSettings();
+        RefreshProfiles();
+    }
+
+    private void RefreshProfiles()
+    {
+        Profiles.Clear();
+        var profiles = _profileService.GetAllProfiles();
+        foreach (var profile in profiles)
+        {
+            Profiles.Add(profile.Name);
+        }
     }
 
     private string NormalizeGameFolderPath(string path)
@@ -279,5 +300,72 @@ public partial class MainViewModel : ObservableObject
         {
             MessageBox.Show($"Ошибка переключения мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    [RelayCommand]
+    private void SaveProfile()
+    {
+        if (string.IsNullOrEmpty(GameFolderPath))
+        {
+            MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var dialog = new Views.ProfileNameDialog();
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var profileName = dialog.ProfileName;
+        if (string.IsNullOrWhiteSpace(profileName))
+            return;
+
+        var profile = _profileService.CreateFromCurrentState(Mods.ToList());
+        profile.Name = profileName;
+        
+        _profileService.SaveProfile(profile);
+        RefreshProfiles();
+        SelectedProfile = profileName;
+        StatusMessage = $"Профиль \"{profileName}\" сохранён.";
+    }
+
+    [RelayCommand]
+    private void LoadProfile()
+    {
+        if (string.IsNullOrEmpty(SelectedProfile))
+            return;
+
+        var profile = _profileService.LoadProfile(SelectedProfile);
+        if (profile == null)
+        {
+            MessageBox.Show("Не удалось загрузить профиль.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        try
+        {
+            _modService.ApplyProfile(GameFolderPath, profile);
+            RefreshMods();
+            StatusMessage = $"Профиль \"{SelectedProfile}\" применён.";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка применения профиля:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteProfile()
+    {
+        if (string.IsNullOrEmpty(SelectedProfile))
+            return;
+
+        var result = MessageBox.Show($"Удалить профиль \"{SelectedProfile}\"?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        _profileService.DeleteProfile(SelectedProfile);
+        RefreshProfiles();
+        SelectedProfile = string.Empty;
+        StatusMessage = "Профиль удалён.";
     }
 }

@@ -68,9 +68,8 @@
         </Grid>
 
         <!-- Toolbar -->
-        <StackPanel Grid.Row="1"
-                    Orientation="Horizontal"
-                    Margin="0,0,0,8">
+        <DockPanel Grid.Row="1" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
 <Button Content="Install Mod"
                      Command="{Binding InstallModCommand}"
                      Padding="16,6"
@@ -82,7 +81,27 @@
                      Padding="16,6"
                      Margin="8,0,0,0"
                      IsEnabled="{Binding IsNotBusy}"/>
-        </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="16,0,0,0">
+<Button Content="Save Profile"
+        Command="{Binding SaveProfileCommand}"
+        Padding="8,6"
+        Margin="0,0,4,0"
+        IsEnabled="{Binding IsNotBusy}"/>
+
+<ComboBox ItemsSource="{Binding Profiles}"
+          SelectedItem="{Binding SelectedProfile}"
+          Width="150"
+          IsEnabled="{Binding IsNotBusy}"
+          SelectionChanged="ComboBox_SelectionChanged"/>
+
+<Button Content="Delete"
+        Command="{Binding DeleteProfileCommand}"
+        Padding="8,6"
+        Margin="4,0,0,0"
+        IsEnabled="{Binding SelectedProfile, Converter={StaticResource SelectedProfileNotEmptyConverter}}"/>
+            </StackPanel>
+        </DockPanel>
 
         <!-- Mods List -->
         <Border Grid.Row="2"

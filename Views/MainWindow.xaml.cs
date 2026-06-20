@@ -1,13 +1,17 @@
 using System.Windows;
+using System.Windows.Controls;
 using DataFormats = System.Windows.DataFormats;
 using DragDropEffects = System.Windows.DragDropEffects;
 using DragEventArgs = System.Windows.DragEventArgs;
+using SelectionChangedEventArgs = System.Windows.Controls.SelectionChangedEventArgs;
 using SevenDaysModLauncher.ViewModels;
 
 namespace SevenDaysModLauncher.Views;
 
 public partial class MainWindow : Window
 {
+    private bool _isLoadingProfile = false;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -35,6 +39,18 @@ public partial class MainWindow : Window
             {
                 vm.InstallModFromDropCommand.Execute(files);
             }
+        }
+    }
+
+    private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingProfile) return;
+        
+        if (DataContext is MainViewModel vm && e.AddedItems?.Count > 0)
+        {
+            _isLoadingProfile = true;
+            vm.LoadProfileCommand.Execute(null);
+            _isLoadingProfile = false;
         }
     }
 }

@@ -1,12 +1,16 @@
 <Application x:Class="SevenDaysModLauncher.App"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="Views/MainWindow.xaml">
+              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:local="clr-namespace:SevenDaysModLauncher"
+              StartupUri="Views/MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+            <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+            <local:SelectedProfileNotEmptyConverter x:Key="SelectedProfileNotEmptyConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
