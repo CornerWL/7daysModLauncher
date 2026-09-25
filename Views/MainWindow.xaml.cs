@@ -1,9 +1,14 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using DataFormats = System.Windows.DataFormats;
 using DragDropEffects = System.Windows.DragDropEffects;
 using DragEventArgs = System.Windows.DragEventArgs;
 using SelectionChangedEventArgs = System.Windows.Controls.SelectionChangedEventArgs;
+using WpfListViewItem = System.Windows.Controls.ListViewItem;
+using WpfScrollBar = System.Windows.Controls.Primitives.ScrollBar;
+using WpfSelector = System.Windows.Controls.Primitives.Selector;
 using SevenDaysModLauncher.ViewModels;
 
 namespace SevenDaysModLauncher.Views;
@@ -52,5 +57,22 @@ public partial class MainWindow : Window
             vm.LoadProfileCommand.Execute(null);
             _isLoadingProfile = false;
         }
+    }
+
+    /// <summary>Клик по пустому месту списка (не по карточке и не по скроллбару) — снять выделение.</summary>
+    private void ModsList_ClickEmptyDeselect(object sender, MouseButtonEventArgs e)
+    {
+        DependencyObject? current = e.OriginalSource as DependencyObject;
+        while (current != null)
+        {
+            if (current is WpfListViewItem || current is WpfScrollBar)
+                return;
+            if (current is WpfSelector)
+                break;
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        if (DataContext is MainViewModel vm)
+            vm.ClearSelectionCommand.Execute(null);
     }
 }

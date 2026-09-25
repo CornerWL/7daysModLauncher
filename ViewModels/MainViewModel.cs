@@ -674,6 +674,15 @@ public partial class MainViewModel : ObservableObject
         SortAscending = !SortAscending;
     }
 
+    /// <summary>Сброс выделения (клик по пустому месту списка).</summary>
+    [RelayCommand]
+    private void ClearSelection()
+    {
+        SelectedMod = null;
+        foreach (var mod in _allMods)
+            mod.IsSelected = false;
+    }
+
     [RelayCommand]
     private void OpenWebsite(string? url)
     {

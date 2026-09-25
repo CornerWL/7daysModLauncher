@@ -11,6 +11,7 @@
             <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
             <local:SelectedProfileNotEmptyConverter x:Key="SelectedProfileNotEmptyConverter"/>
+            <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
