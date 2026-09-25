@@ -36,12 +36,13 @@ public class ModService
 
     private static ModItem CreateModItem(string folderPath, bool isEnabled)
     {
-        var name = Path.GetFileName(folderPath);
+        var folderName = Path.GetFileName(folderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         var (version, author, description, displayName, website) = TryReadModInfo(folderPath);
 
         return new ModItem
         {
-            Name = string.IsNullOrWhiteSpace(displayName) ? name : displayName,
+            Name = string.IsNullOrWhiteSpace(displayName) ? folderName : displayName,
+            FolderName = folderName,
             IsEnabled = isEnabled,
             Version = version,
             Author = author,
@@ -382,10 +383,14 @@ public class ModService
         }
     }
 
+    public record ApplyResult(List<string> Missing, int Moved, bool Healed);
+
     /// <summary>
-    /// Применяет профиль. Возвращает имена модов из профиля, которых нет на диске.
+    /// Применяет профиль. Матчит записи с папками на диске по FolderName, затем по Name
+    /// (чинит профили, сохраненные по отображаемому имени). Проставляет недостающие
+    /// FolderName прямо в переданный профиль (VM пересохраняет его).
     /// </summary>
-    public List<string> ApplyProfile(string gameFolder, Profile profile)
+    public ApplyResult ApplyProfile(string gameFolder, Profile profile)
     {
         var modsPath = GetModsPath(gameFolder);
         var disabledPath = GetDisabledModsPath(gameFolder);
@@ -393,37 +398,62 @@ public class ModService
         Directory.CreateDirectory(modsPath);
         Directory.CreateDirectory(disabledPath);
 
+        // Текущее состояние с диска: у каждого мода есть FolderName (папка) и Name (из ModInfo).
+        // Матчим записи профиля по любому из них — чинит профили, сохраненные по отображаемому имени.
+        var current = ScanMods(gameFolder);
+
+        static ModItem? Find(List<ModItem> items, string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return null;
+            return items.FirstOrDefault(m => m.FolderName.Equals(key, StringComparison.OrdinalIgnoreCase))
+                ?? items.FirstOrDefault(m => m.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+        }
+
         var missing = new List<string>();
+        int moved = 0;
+        bool healed = false;
+
         foreach (var modState in profile.Mods)
         {
-            var modPath = Path.Combine(modsPath, modState.Name);
-            var disabledPath2 = Path.Combine(disabledPath, modState.Name);
-
-            var isInMods = Directory.Exists(modPath);
-            var isInDisabled = Directory.Exists(disabledPath2);
-
-            if (!isInMods && !isInDisabled)
+            var mod = Find(current, modState.FolderName) ?? Find(current, modState.Name);
+            if (mod == null)
             {
-                missing.Add(modState.Name);
+                missing.Add(modState.FolderName ?? modState.Name);
                 continue;
             }
 
-            if (modState.IsEnabled && isInDisabled)
+            // Самолечение: дописываем реальное имя папки
+            if (string.IsNullOrWhiteSpace(modState.FolderName) ||
+                !modState.FolderName.Equals(mod.FolderName, StringComparison.OrdinalIgnoreCase))
             {
-                if (Directory.Exists(modPath))
-                    Directory.Delete(modPath, true);
-                Directory.Move(disabledPath2, modPath);
+                modState.FolderName = mod.FolderName;
+                healed = true;
             }
-            else if (!modState.IsEnabled && isInMods)
+
+            var targetPath = Path.Combine(modsPath, mod.FolderName);
+            var disabledTarget = Path.Combine(disabledPath, mod.FolderName);
+
+            if (modState.IsEnabled && !mod.IsEnabled)
             {
-                if (Directory.Exists(disabledPath2))
-                    Directory.Delete(disabledPath2, true);
-                Directory.Move(modPath, disabledPath2);
+                if (Directory.Exists(targetPath))
+                    Directory.Delete(targetPath, true);
+                Directory.Move(mod.FolderPath, targetPath);
+                AppLogger.Info($"ApplyProfile: enabled '{mod.FolderName}'");
+                moved++;
+            }
+            else if (!modState.IsEnabled && mod.IsEnabled)
+            {
+                if (Directory.Exists(disabledTarget))
+                    Directory.Delete(disabledTarget, true);
+                Directory.Move(mod.FolderPath, disabledTarget);
+                AppLogger.Info($"ApplyProfile: disabled '{mod.FolderName}'");
+                moved++;
             }
         }
         if (missing.Count > 0)
             AppLogger.Warn($"ApplyProfile: missing mods: {string.Join(", ", missing)}");
-        return missing;
+        return new ApplyResult(missing, moved, healed);
     }
 
     public string FindGameFolder()

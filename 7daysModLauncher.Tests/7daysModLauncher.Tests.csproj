@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -25,6 +26,10 @@
     <Compile Include="..\Services\GameLauncherService.cs" Link="Linked\GameLauncherService.cs" />
     <Compile Include="..\Services\AppLogger.cs" Link="Linked\AppLogger.cs" />
     <Compile Include="..\Services\UpdateCheckService.cs" Link="Linked\UpdateCheckService.cs" />
+    <Compile Include="..\Services\ModService.cs" Link="Linked\ModService.cs" />
+    <Compile Include="..\Models\ModItem.cs" Link="Linked\ModItem.cs" />
+    <Compile Include="..\Models\Profile.cs" Link="Linked\Profile.cs" />
+    <Compile Include="..\Models\AppSettings.cs" Link="Linked\AppSettings.cs" />
   </ItemGroup>
 
 </Project>

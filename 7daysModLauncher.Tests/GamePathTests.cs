@@ -1,4 +1,5 @@
 using SevenDaysModLauncher.Services;
+using SevenDaysModLauncher.Models;
 
 namespace SevenDaysModLauncher.Tests;
 
@@ -109,5 +110,71 @@ public class UpdateCheckServiceTests
     public void CompareVersions_Works(string tag, string current, int expected)
     {
         Assert.Equal(expected, Math.Sign(UpdateCheckService.CompareVersions(tag, current)));
+    }
+}
+
+public class ApplyProfileTests : IDisposable
+{
+    private readonly string _gameDir;
+    private readonly ModService _svc = new();
+
+    public ApplyProfileTests()
+    {
+        _gameDir = Path.Combine(Path.GetTempPath(), "7dtd_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(_gameDir, "Mods", "0_TFP_Harmony"));
+        File.WriteAllText(
+            Path.Combine(_gameDir, "Mods", "0_TFP_Harmony", "ModInfo.xml"),
+            "<ModInfo Name=\"Harmony Display\" Author=\"A\" Version=\"1.0\" />");
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_gameDir))
+            Directory.Delete(_gameDir, true);
+    }
+
+    [Fact]
+    public void ApplyProfile_MatchesLegacyProfile_ByDisplayName_AndHeals()
+    {
+        // ������ �������: FolderName ���, Name = ������������ ���
+        var profile = new Profile
+        {
+            Name = "p1",
+            Mods = new List<Profile.ModState>
+            {
+                new() { Name = "Harmony Display", IsEnabled = false },
+            }
+        };
+
+        var result = _svc.ApplyProfile(_gameDir, profile);
+
+        Assert.Empty(result.Missing);
+        Assert.Equal(1, result.Moved);
+        Assert.True(result.Healed);
+        Assert.True(Directory.Exists(Path.Combine(_gameDir, "Mods_Disabled", "0_TFP_Harmony")));
+        Assert.Equal("0_TFP_Harmony", profile.Mods[0].FolderName);
+    }
+
+    [Fact]
+    public void ApplyProfile_MovesBack_WhenEnabled()
+    {
+        Directory.CreateDirectory(Path.Combine(_gameDir, "Mods_Disabled"));
+        Directory.Move(
+            Path.Combine(_gameDir, "Mods", "0_TFP_Harmony"),
+            Path.Combine(_gameDir, "Mods_Disabled", "0_TFP_Harmony"));
+        var profile = new Profile
+        {
+            Name = "p2",
+            Mods = new List<Profile.ModState>
+            {
+                new() { Name = "Harmony Display", FolderName = "0_TFP_Harmony", IsEnabled = true },
+            }
+        };
+
+        var result = _svc.ApplyProfile(_gameDir, profile);
+
+        Assert.Empty(result.Missing);
+        Assert.Equal(1, result.Moved);
+        Assert.True(Directory.Exists(Path.Combine(_gameDir, "Mods", "0_TFP_Harmony")));
     }
 }

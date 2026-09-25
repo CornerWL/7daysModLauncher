@@ -23,6 +23,10 @@ public partial class ModItem : ObservableObject
     [ObservableProperty]
     private string? _website;
 
+    /// <summary>Стабильное имя папки мода (ключ для профилей). Name может быть DisplayName из ModInfo.</summary>
+    [ObservableProperty]
+    private string _folderName = string.Empty;
+
     [ObservableProperty]
     private string _folderPath = string.Empty;
 

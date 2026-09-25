@@ -82,8 +82,26 @@ public partial class MainViewModel : ObservableObject
 
         LoadSettings();
         RefreshProfiles();
+        RestoreSelectedProfile();
         _ = CheckForUpdatesAsync();
     }
+
+    /// <summary>Возвращает последний выбранный профиль и применяет его (состояния модов).</summary>
+    private void RestoreSelectedProfile()
+    {
+        try
+        {
+            var saved = _settingsService.Load().SelectedProfile;
+            if (!string.IsNullOrWhiteSpace(saved) && Profiles.Contains(saved))
+                SelectedProfile = saved;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"RestoreSelectedProfile failed: {ex.Message}");
+        }
+    }
+
+    partial void OnSelectedProfileChanged(string value) => SaveSettings();
 
     private async Task CheckForUpdatesAsync()
     {
@@ -207,7 +225,7 @@ public partial class MainViewModel : ObservableObject
 
     private void SaveSettings()
     {
-        _settingsService.Save(new AppSettings { GameFolderPath = GameFolderPath });
+        _settingsService.Save(new AppSettings { GameFolderPath = GameFolderPath, SelectedProfile = SelectedProfile });
     }
 
     [RelayCommand]
@@ -335,9 +353,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void RefreshMods()
     {
-        // Запоминаем выделение по именам, чтобы восстановить после перескана
-        var selectedNames = _allMods.Where(m => m.IsSelected).Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var focusedName = SelectedMod?.Name;
+        // Запоминаем выделение по именам папок, чтобы восстановить после перескана
+        var selectedNames = _allMods.Where(m => m.IsSelected).Select(m => m.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var focusedKey = SelectedMod?.FolderName;
 
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
         {
@@ -351,10 +369,10 @@ public partial class MainViewModel : ObservableObject
 
         _allMods = _modService.ScanMods(GameFolderPath);
         foreach (var mod in _allMods)
-            mod.IsSelected = selectedNames.Contains(mod.Name);
-        SelectedMod = string.IsNullOrEmpty(focusedName)
+            mod.IsSelected = selectedNames.Contains(mod.FolderName);
+        SelectedMod = string.IsNullOrEmpty(focusedKey)
             ? null
-            : _allMods.FirstOrDefault(m => m.Name.Equals(focusedName, StringComparison.OrdinalIgnoreCase));
+            : _allMods.FirstOrDefault(m => m.FolderName.Equals(focusedKey, StringComparison.OrdinalIgnoreCase));
         ApplyFilter();
     }
 
@@ -550,6 +568,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(SelectedProfile))
             return;
+        if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
+            return;
         if (!EnsureGameNotRunning("применять профиль"))
             return;
 
@@ -562,13 +582,17 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var missing = _modService.ApplyProfile(GameFolderPath, profile);
+            var result = _modService.ApplyProfile(GameFolderPath, profile);
+            if (result.Healed)
+                _profileService.SaveProfile(profile);
             RefreshMods();
-            StatusMessage = missing.Count == 0
-                ? $"Профиль \"{SelectedProfile}\" применён."
-                : $"Профиль применён, нет на диске ({missing.Count}): {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? "..." : "")}";
-            if (missing.Count > 0)
-                MessageBox.Show($"Профиль применён частично.\nМоды не найдены на диске:\n• {string.Join("\n• ", missing)}",
+            StatusMessage = result.Missing.Count == 0
+                ? (result.Moved > 0
+                    ? $"Профиль \"{SelectedProfile}\" применён (перемещено: {result.Moved})."
+                    : $"Профиль \"{SelectedProfile}\" уже соответствует.")
+                : $"Профиль применён (перемещено: {result.Moved}), нет на диске ({result.Missing.Count}): {string.Join(", ", result.Missing.Take(5))}{(result.Missing.Count > 5 ? "..." : "")}";
+            if (result.Missing.Count > 0)
+                MessageBox.Show($"Профиль применён частично.\nМоды не найдены на диске:\n• {string.Join("\n• ", result.Missing)}",
                     "Нет некоторых модов", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)

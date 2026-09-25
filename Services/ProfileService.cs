@@ -106,6 +106,7 @@ public class ProfileService
             Mods = mods.Select(m => new Profile.ModState
             {
                 Name = m.Name,
+                FolderName = m.FolderName,
                 IsEnabled = m.IsEnabled
             }).ToList()
         };
