@@ -54,7 +54,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10"
+                            CornerRadius="6"
                             SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -153,7 +153,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10"
+                            CornerRadius="6"
                             SnapsToDevicePixels="True">
                         <ScrollViewer x:Name="PART_ContentHost"
                                       Margin="{TemplateBinding Padding}"
@@ -192,7 +192,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="10" SnapsToDevicePixels="True">
+                            CornerRadius="6" SnapsToDevicePixels="True">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -247,7 +247,7 @@
                             <Grid x:Name="DropDown" SnapsToDevicePixels="True"
                                   MinWidth="{TemplateBinding ActualWidth}" MaxHeight="280">
                                 <Border Background="#FF161D2B" BorderBrush="{DynamicResource BorderBrush}"
-                                        BorderThickness="1" CornerRadius="10"/>
+                                        BorderThickness="1" CornerRadius="6"/>
                                 <ScrollViewer Margin="4,6" SnapsToDevicePixels="True">
                                     <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
                                 </ScrollViewer>
@@ -295,7 +295,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border x:Name="Track" Width="42" Height="24" CornerRadius="12"
+                        <Border x:Name="Track" Width="42" Height="24" CornerRadius="8"
                                 Background="#FF2A3348" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
                             <Grid>
                                 <Ellipse x:Name="Thumb" Width="16" Height="16" Fill="#FF8B94A9"
