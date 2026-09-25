@@ -136,10 +136,10 @@ public partial class MainViewModel : ObservableObject
             var info = await new UpdateCheckService().CheckAsync();
             if (info?.HasUpdate == true)
             {
-                StatusMessage = $"Доступна новая версия {info.Tag} (у вас {info.Current}).";
+                StatusMessage = $"New version {info.Tag} available (you have {info.Current}).";
                 var res = MessageBox.Show(
-                    $"Вышла новая версия {info.Tag} (у вас {info.Current}).\nОткрыть страницу релиза?",
-                    "Доступно обновление", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                    $"New version {info.Tag} is out (you have {info.Current}).\nOpen the release page?",
+                    "Update available", MessageBoxButton.YesNo, MessageBoxImage.Information);
                 if (res == MessageBoxResult.Yes && !string.IsNullOrWhiteSpace(info.Url))
                     Process.Start(new ProcessStartInfo { FileName = info.Url, UseShellExecute = true });
             }
@@ -234,7 +234,7 @@ public partial class MainViewModel : ObservableObject
             else
             {
                 // Предложить пользователю выбрать вручную
-                var result = MessageBox.Show("Не удалось автоматически найти папку игры. Выбрать вручную?", "Папка игры не найдена", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var result = MessageBox.Show("Could not find the game folder automatically. Select it manually?", "Game folder not found", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result == MessageBoxResult.Yes)
                 {
                     BrowseGameFolder();
@@ -259,7 +259,7 @@ public partial class MainViewModel : ObservableObject
     {
         var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "Выберите папку с игрой 7 Days to Die (где лежит 7DaysToDie.exe)"
+            Description = "Select the 7 Days to Die game folder (containing 7DaysToDie.exe)"
         };
 
         if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
@@ -268,8 +268,8 @@ public partial class MainViewModel : ObservableObject
             if (!GamePathHelper.IsValidGameFolder(GameFolderPath))
             {
                 var res = MessageBox.Show(
-                    $"В папке не найден {GamePathHelper.GameExeName}.\n\n{GameFolderPath}\n\nВсе равно использовать эту папку?",
-                    "Похоже, это не папка игры",
+                    $"{GamePathHelper.GameExeName} not found in this folder.\n\n{GameFolderPath}\n\nUse this folder anyway?",
+                    "This doesn't look like the game folder",
                     MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (res != MessageBoxResult.Yes)
                     return;
@@ -294,12 +294,12 @@ public partial class MainViewModel : ObservableObject
             SaveSettings();
             RefreshMods();
             OnPropertyChanged(nameof(CanLaunchGame));
-            StatusMessage = "Папка игры найдена автоматически!";
+            StatusMessage = "Game folder detected automatically!";
         }
         else
         {
-            MessageBox.Show("Не удалось автоматически найти папку игры. Попробуйте выбрать её вручную.", "Поиск не удался", MessageBoxButton.OK, MessageBoxImage.Information);
-            StatusMessage = "Автоматический поиск не удался.";
+            MessageBox.Show("Could not detect the game folder automatically. Please select it manually.", "Detection failed", MessageBoxButton.OK, MessageBoxImage.Information);
+            StatusMessage = "Automatic detection failed.";
         }
     }
 
@@ -308,17 +308,17 @@ public partial class MainViewModel : ObservableObject
     {
         if (!CanLaunchGame)
         {
-            MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         if (!_launcherService.TryLaunch(GameFolderPath, out var error))
         {
-            MessageBox.Show($"Не удалось запустить игру:\n{error}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            StatusMessage = "Ошибка запуска игры.";
+            MessageBox.Show($"Failed to launch the game:\n{error}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = "Failed to launch the game.";
         }
         else
         {
-            StatusMessage = "Игра запускается...";
+            StatusMessage = "Launching the game...";
         }
     }
 
@@ -330,7 +330,7 @@ public partial class MainViewModel : ObservableObject
             var path = mod?.FolderPath;
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
             {
-                MessageBox.Show("Папка мода не найдена.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Mod folder not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
@@ -338,7 +338,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("OpenModFolder failed", ex);
-            MessageBox.Show($"Не удалось открыть папку:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to open the folder:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -358,7 +358,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
             return;
-        if (!EnsureGameNotRunning("переключать моды"))
+        if (!EnsureGameNotRunning("toggle mods"))
             return;
         try
         {
@@ -368,12 +368,12 @@ public partial class MainViewModel : ObservableObject
             }
             RefreshMods();
             AutoSaveProfile();
-            StatusMessage = enabled ? "Все моды включены." : "Все моды отключены.";
+            StatusMessage = enabled ? "All mods enabled." : "All mods disabled.";
         }
         catch (Exception ex)
         {
             AppLogger.Error("SetAllModsEnabled failed", ex);
-            MessageBox.Show($"Ошибка:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -430,9 +430,9 @@ public partial class MainViewModel : ObservableObject
     {
         if (_launcherService.IsGameRunning())
         {
-            MessageBox.Show($"Нельзя: {action}, пока игра запущена.\nЗакройте 7 Days to Die и попробуйте снова.",
-                "Игра запущена", MessageBoxButton.OK, MessageBoxImage.Warning);
-            StatusMessage = "Дождитесь закрытия игры.";
+            MessageBox.Show($"Cannot {action} while the game is running.\nClose 7 Days to Die and try again.",
+                "Game is running", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusMessage = "Wait until the game is closed.";
             return false;
         }
         return true;
@@ -449,16 +449,16 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        if (!EnsureGameNotRunning("устанавливать моды"))
+        if (!EnsureGameNotRunning("install mods"))
             return;
 
         var dialog = new OpenFileDialog
         {
-            Filter = "ZIP архивы (*.zip)|*.zip|Все файлы (*.*)|*.*",
-            Title = "Выберите архив мода"
+            Filter = "ZIP archives (*.zip)|*.zip|All files (*.*)|*.*",
+            Title = "Select a mod archive"
         };
 
         if (dialog.ShowDialog() != true)
@@ -475,7 +475,7 @@ public partial class MainViewModel : ObservableObject
 
         IsBusy = true;
         ProgressValue = 0;
-        StatusMessage = "Установка мода...";
+        StatusMessage = "Installing mod...";
 
         try
         {
@@ -485,25 +485,25 @@ public partial class MainViewModel : ObservableObject
                 token.ThrowIfCancellationRequested();
                 index++;
                 StatusMessage = zipFiles.Count() > 1
-                    ? $"Установка {index}/{zipFiles.Count()}: {Path.GetFileName(zip)}..."
-                    : $"Установка: {Path.GetFileName(zip)}...";
+                    ? $"Installing {index}/{zipFiles.Count()}: {Path.GetFileName(zip)}..."
+                    : $"Installing: {Path.GetFileName(zip)}...";
                 var progress = new Progress<double>(value => ProgressValue = value);
                 await _modService.InstallModAsync(GameFolderPath, zip, progress, token);
             }
-            StatusMessage = zipFiles.Count() > 1 ? "Моды установлены (старые версии — в Mods_Backup)." : "Мод установлен (старая версия — в Mods_Backup).";
+            StatusMessage = zipFiles.Count() > 1 ? "Mods installed (old versions moved to Mods_Backup)." : "Mod installed (old version moved to Mods_Backup).";
             RefreshMods();
             AutoSaveProfile();
         }
         catch (OperationCanceledException)
         {
-            StatusMessage = "Установка отменена.";
+            StatusMessage = "Install cancelled.";
             AppLogger.Info("Install cancelled by user");
         }
         catch (Exception ex)
         {
             AppLogger.Error("Install failed", ex);
-            MessageBox.Show($"Ошибка установки мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            StatusMessage = "Ошибка установки мода.";
+            MessageBox.Show($"Failed to install mod:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = "Failed to install mod.";
         }
         finally
         {
@@ -516,16 +516,16 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        if (!EnsureGameNotRunning("устанавливать моды"))
+        if (!EnsureGameNotRunning("install mods"))
             return;
 
         var zipFiles = files.Where(f => Path.GetExtension(f).Equals(".zip", StringComparison.OrdinalIgnoreCase)).ToList();
         if (!zipFiles.Any())
         {
-            MessageBox.Show("Перетащите ZIP архивы.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Drop ZIP archives.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -538,10 +538,10 @@ public partial class MainViewModel : ObservableObject
     {
         if (mod == null)
             return;
-        if (!EnsureGameNotRunning("удалять моды"))
+        if (!EnsureGameNotRunning("delete mods"))
             return;
 
-        var result = MessageBox.Show($"Удалить мод \"{mod.Name}\"?\n\nКопия сохранится в Mods_Backup.", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var result = MessageBox.Show($"Delete mod \"{mod.Name}\"?\n\nA backup copy will be kept in Mods_Backup.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes)
             return;
 
@@ -552,13 +552,13 @@ public partial class MainViewModel : ObservableObject
             ApplyFilter();
             AutoSaveProfile();
             StatusMessage = backup != null
-                ? $"Мод \"{mod.Name}\" удалён (бэкап: {backup})."
-                : $"Мод \"{mod.Name}\" удалён.";
+                ? $"Mod \"{mod.Name}\" deleted (backup: {backup})."
+                : $"Mod \"{mod.Name}\" deleted.";
         }
         catch (Exception ex)
         {
             AppLogger.Error("DeleteMod failed", ex);
-            MessageBox.Show($"Ошибка удаления мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to delete mod:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -567,7 +567,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (mod == null || string.IsNullOrEmpty(GameFolderPath))
             return;
-        if (!EnsureGameNotRunning("переключать моды"))
+        if (!EnsureGameNotRunning("toggle mods"))
             return;
 
         try
@@ -576,7 +576,7 @@ public partial class MainViewModel : ObservableObject
             // Update IsEnabled based on actual folder location after move
             var modsPath = GamePathHelper.GetModsPath(GameFolderPath);
             mod.IsEnabled = mod.FolderPath.StartsWith(modsPath, System.StringComparison.OrdinalIgnoreCase);
-            StatusMessage = $"Мод \"{mod.Name}\" {(mod.IsEnabled ? "включён" : "отключён")}.";
+            StatusMessage = $"Mod \"{mod.Name}\" {(mod.IsEnabled ? "enabled" : "disabled")}.";
             // Refresh the list to ensure UI reflects the current state
             RefreshMods();
             AutoSaveProfile();
@@ -584,7 +584,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("ToggleMod failed", ex);
-            MessageBox.Show($"Ошибка переключения мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to toggle mod:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -593,7 +593,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -611,7 +611,7 @@ public partial class MainViewModel : ObservableObject
         _profileService.SaveProfile(profile);
         RefreshProfiles();
         SelectedProfile = profileName;
-        StatusMessage = $"Профиль \"{profileName}\" сохранён.";
+        StatusMessage = $"Profile \"{profileName}\" saved.";
     }
 
     [RelayCommand]
@@ -621,13 +621,13 @@ public partial class MainViewModel : ObservableObject
             return;
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
             return;
-        if (!EnsureGameNotRunning("применять профиль"))
+        if (!EnsureGameNotRunning("apply the profile"))
             return;
 
         var profile = _profileService.LoadProfile(SelectedProfile);
         if (profile == null)
         {
-            MessageBox.Show("Не удалось загрузить профиль.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show("Failed to load the profile.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
 
@@ -639,16 +639,16 @@ public partial class MainViewModel : ObservableObject
             RefreshMods();
             StatusMessage = result.Missing.Count == 0
                 ? (result.Moved > 0
-                    ? $"Профиль \"{SelectedProfile}\" применён (перемещено: {result.Moved})."
-                    : $"Профиль \"{SelectedProfile}\" уже соответствует.")
-                : $"Профиль применён (перемещено: {result.Moved}), нет на диске ({result.Missing.Count}): {string.Join(", ", result.Missing.Take(5))}{(result.Missing.Count > 5 ? "..." : "")}";
+                    ? $"Profile \"{SelectedProfile}\" applied (moved: {result.Moved})."
+                    : $"Profile \"{SelectedProfile}\" is already in sync.")
+                : $"Profile applied (moved: {result.Moved}), missing on disk ({result.Missing.Count}): {string.Join(", ", result.Missing.Take(5))}{(result.Missing.Count > 5 ? "..." : "")}";
             if (result.Missing.Count > 0)
-                MessageBox.Show($"Профиль применён частично.\nМоды не найдены на диске:\n• {string.Join("\n• ", result.Missing)}",
-                    "Нет некоторых модов", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"Profile partially applied.\nMods not found on disk:\n• {string.Join("\n• ", result.Missing)}",
+                    "Some mods are missing", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Ошибка применения профиля:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to apply profile:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -658,14 +658,14 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(SelectedProfile))
             return;
 
-        var result = MessageBox.Show($"Удалить профиль \"{SelectedProfile}\"?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var result = MessageBox.Show($"Delete profile \"{SelectedProfile}\"?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes)
             return;
 
         _profileService.DeleteProfile(SelectedProfile);
         RefreshProfiles();
         SelectedProfile = string.Empty;
-        StatusMessage = "Профиль удалён.";
+        StatusMessage = "Profile deleted.";
     }
 
     [RelayCommand]
@@ -696,7 +696,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("OpenWebsite failed", ex);
-            MessageBox.Show($"Не удалось открыть ссылку:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to open the link:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -717,7 +717,7 @@ public partial class MainViewModel : ObservableObject
         var list = _allMods.Where(m => m.IsSelected).ToList();
         if (list.Count == 0 || string.IsNullOrEmpty(GameFolderPath))
             return;
-        if (!EnsureGameNotRunning("переключать моды"))
+        if (!EnsureGameNotRunning("toggle mods"))
             return;
         try
         {
@@ -725,12 +725,12 @@ public partial class MainViewModel : ObservableObject
                 _modService.ToggleMod(GameFolderPath, mod);
             RefreshMods();
             AutoSaveProfile();
-            StatusMessage = enabled ? $"Включено: {list.Count}." : $"Отключено: {list.Count}.";
+            StatusMessage = enabled ? $"Enabled: {list.Count}." : $"Disabled: {list.Count}.";
         }
         catch (Exception ex)
         {
             AppLogger.Error("SetSelectedModsEnabled failed", ex);
-            MessageBox.Show($"Ошибка:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -740,11 +740,11 @@ public partial class MainViewModel : ObservableObject
         var list = _allMods.Where(m => m.IsSelected).ToList();
         if (list.Count == 0)
             return;
-        if (!EnsureGameNotRunning("удалять моды"))
+        if (!EnsureGameNotRunning("delete mods"))
             return;
 
-        var result = MessageBox.Show($"Удалить {list.Count} модов?\nКопии сохранятся в Mods_Backup.",
-            "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var result = MessageBox.Show($"Delete {list.Count} mods?\nBackup copies will be kept in Mods_Backup.",
+            "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes)
             return;
 
@@ -758,12 +758,12 @@ public partial class MainViewModel : ObservableObject
             SelectedMod = null;
             ApplyFilter();
             AutoSaveProfile();
-            StatusMessage = $"Удалено модов: {list.Count} (бэкапы в Mods_Backup).";
+            StatusMessage = $"Deleted {list.Count} mods (backups in Mods_Backup).";
         }
         catch (Exception ex)
         {
             AppLogger.Error("DeleteSelectedMods failed", ex);
-            MessageBox.Show($"Ошибка удаления:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

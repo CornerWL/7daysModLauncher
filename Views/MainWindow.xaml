@@ -55,7 +55,7 @@
                 <Button Content="▶  Play" Command="{Binding LaunchGameCommand}"
                         Padding="28,10" MinWidth="130"
                         Style="{DynamicResource PlayButtonStyle}"
-                        IsEnabled="{Binding CanLaunchGame}" ToolTip="Запустить игру"/>
+                        IsEnabled="{Binding CanLaunchGame}" ToolTip="Launch the game"/>
             </StackPanel>
         </Grid>
 
@@ -86,7 +86,7 @@
                         Margin="12,0,0,0" Padding="16,8" Style="{DynamicResource GhostButtonStyle}"/>
                 <Button Grid.Column="3" Content="Auto" Command="{Binding AutoDetectGameFolderCommand}"
                         Margin="8,0,0,0" Padding="16,8" Style="{DynamicResource GhostButtonStyle}"
-                        ToolTip="Найти автоматически"/>
+                        ToolTip="Detect automatically"/>
             </Grid>
         </Border>
 
@@ -104,15 +104,15 @@
                                   MinWidth="140" Width="190" Margin="0,0,8,0"
                                   IsEnabled="{Binding IsNotBusy}"
                                   SelectionChanged="ComboBox_SelectionChanged"
-                                  ToolTip="Профили"/>
+                                  ToolTip="Profiles"/>
                         <Button Content="💾 Save" Command="{Binding SaveProfileCommand}"
                                 Padding="14,7" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
-                                IsEnabled="{Binding IsNotBusy}" ToolTip="Сохранить текущий набор модов как профиль"/>
+                                IsEnabled="{Binding IsNotBusy}" ToolTip="Save the current mod set as a profile"/>
                         <Button Content="Delete" Command="{Binding DeleteProfileCommand}"
                                 Padding="14,7"
                                 Style="{DynamicResource DangerButtonStyle}"
                                 IsEnabled="{Binding SelectedProfile, Converter={StaticResource SelectedProfileNotEmptyConverter}}"
-                                ToolTip="Удалить выбранный профиль"/>
+                                ToolTip="Delete the selected profile"/>
                     </WrapPanel>
                 </Border>
             </WrapPanel>
@@ -146,18 +146,18 @@
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
                                 IsEnabled="{Binding IsNotBusy}"/>
                         <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SortBy}"
-                                  Width="110" Margin="0,0,4,0" ToolTip="Сортировка"
+                                  Width="110" Margin="0,0,4,0" ToolTip="Sort by"
                                   IsEnabled="{Binding IsNotBusy}"/>
                         <Button Content="{Binding SortDirectionLabel}" Command="{Binding ToggleSortDirectionCommand}"
                                 Padding="10,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
-                                ToolTip="Порядок сортировки"/>
+                                ToolTip="Sort order"/>
                         <ComboBox ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"
-                                  Width="110" Margin="0,0,8,0" ToolTip="Фильтр по статусу"
+                                  Width="110" Margin="0,0,8,0" ToolTip="Filter by status"
                                   IsEnabled="{Binding IsNotBusy}"/>
                     </WrapPanel>
                     <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                              Width="220" MinHeight="32"
-                             ToolTip="Поиск по имени / автору / версии"/>
+                             ToolTip="Search by name / author / version"/>
                 </Grid>
 
                 <Grid Grid.Row="1" Margin="0,0,0,8">
@@ -220,7 +220,7 @@
                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled, Mode=OneWay}"
                                               HorizontalAlignment="Left" VerticalAlignment="Center"
                                               Command="{Binding DataContext.ToggleModCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                              CommandParameter="{Binding}" ToolTip="Включить / отключить"/>
+                                              CommandParameter="{Binding}" ToolTip="Enable / disable"/>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
                                         <StackPanel Orientation="Horizontal">
@@ -254,10 +254,10 @@
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button Content="📂" Command="{Binding DataContext.OpenModFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding}" Padding="10,5" Margin="0,0,6,0"
-                                                Style="{DynamicResource IconButtonStyle}" ToolTip="Открыть папку мода" FontSize="14"/>
+                                                Style="{DynamicResource IconButtonStyle}" ToolTip="Open mod folder" FontSize="14"/>
                                         <Button Content="🗑" Command="{Binding DataContext.DeleteModCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding}" Padding="10,5"
-                                                Style="{DynamicResource DangerButtonStyle}" ToolTip="Удалить мод" FontSize="14"/>
+                                                Style="{DynamicResource DangerButtonStyle}" ToolTip="Delete mod" FontSize="14"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -357,7 +357,7 @@
                     <ProgressBar Value="{Binding ProgressValue, Mode=OneWay}" Maximum="1"
                                  Width="240" Height="8" VerticalAlignment="Center"/>
                     <Button Content="✕" Command="{Binding CancelInstallCommand}" Margin="10,0,0,0"
-                            Padding="10,4" Style="{DynamicResource DangerButtonStyle}" ToolTip="Отменить установку"/>
+                            Padding="10,4" Style="{DynamicResource DangerButtonStyle}" ToolTip="Cancel install"/>
                 </StackPanel>
             </Border>
             <Border Visibility="{Binding ShowStatus, Converter={StaticResource BoolToVisibilityConverter}}"

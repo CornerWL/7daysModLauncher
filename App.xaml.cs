@@ -11,8 +11,8 @@ public partial class App : Application
         DispatcherUnhandledException += (_, e) =>
         {
             AppLogger.Error("Unhandled UI exception", e.Exception);
-            System.Windows.MessageBox.Show($"Необработанная ошибка:\n{e.Exception.Message}\n\nПодробности в:\n{AppLogger.LogPath}",
-                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"Unhandled error:\n{e.Exception.Message}\n\nDetails in:\n{AppLogger.LogPath}",
+                "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;
         };
 

@@ -44,7 +44,7 @@ public sealed class GameLauncherService : IGameLauncherService
             var exe = FindExe(gameFolder);
             if (exe == null)
             {
-                error = $"Не найден {GamePathHelper.GameExeName} в папке:\n{gameFolder}";
+                error = $"{GamePathHelper.GameExeName} not found in folder:\n{gameFolder}";
                 return false;
             }
 

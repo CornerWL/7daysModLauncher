@@ -155,7 +155,7 @@ public class ModService
         Directory.CreateDirectory(disabledPath);
 
         if (!File.Exists(zipPath))
-            throw new FileNotFoundException($"Архив не найден: {zipPath}");
+            throw new FileNotFoundException($"Archive not found: {zipPath}");
 
         var tempFolder = Path.Combine(Path.GetTempPath(), "7dtd_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempFolder);
@@ -169,7 +169,7 @@ public class ModService
 
             var modFolders = FindModFolders(tempFolder, zipPath);
             if (modFolders.Count == 0)
-                throw new InvalidOperationException("Не удалось найти папку мода в архиве.");
+                throw new InvalidOperationException("Could not find the mod folder in the archive.");
 
             // Честный прогресс: считаем файлы заранее
             var allFiles = new List<(string Source, string ModFolder)>();
