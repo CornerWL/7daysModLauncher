@@ -341,6 +341,7 @@ public partial class MainViewModel : ObservableObject
                 _modService.ToggleMod(GameFolderPath, mod);
             }
             RefreshMods();
+            AutoSaveProfile();
             StatusMessage = enabled ? "Все моды включены." : "Все моды отключены.";
         }
         catch (Exception ex)
@@ -377,6 +378,27 @@ public partial class MainViewModel : ObservableObject
     }
 
     private CancellationTokenSource? _installCts;
+
+    /// <summary>
+    /// Автозапись: любое изменение набора модов сразу сохраняется в выбранный профиль.
+    /// Кнопка Save нужна только для создания нового профиля.
+    /// </summary>
+    private void AutoSaveProfile()
+    {
+        if (string.IsNullOrWhiteSpace(SelectedProfile))
+            return;
+        try
+        {
+            var profile = _profileService.CreateFromCurrentState(_allMods.ToList());
+            profile.Name = SelectedProfile;
+            _profileService.SaveProfile(profile);
+            AppLogger.Info($"Autosaved profile '{SelectedProfile}'");
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Autosave profile failed: {ex.Message}");
+        }
+    }
 
     private bool EnsureGameNotRunning(string action)
     {
@@ -444,6 +466,7 @@ public partial class MainViewModel : ObservableObject
             }
             StatusMessage = zipFiles.Count() > 1 ? "Моды установлены (старые версии — в Mods_Backup)." : "Мод установлен (старая версия — в Mods_Backup).";
             RefreshMods();
+            AutoSaveProfile();
         }
         catch (OperationCanceledException)
         {
@@ -501,6 +524,7 @@ public partial class MainViewModel : ObservableObject
             var backup = _modService.DeleteModWithBackup(mod, GameFolderPath);
             _allMods.Remove(mod);
             ApplyFilter();
+            AutoSaveProfile();
             StatusMessage = backup != null
                 ? $"Мод \"{mod.Name}\" удалён (бэкап: {backup})."
                 : $"Мод \"{mod.Name}\" удалён.";
@@ -529,6 +553,7 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = $"Мод \"{mod.Name}\" {(mod.IsEnabled ? "включён" : "отключён")}.";
             // Refresh the list to ensure UI reflects the current state
             RefreshMods();
+            AutoSaveProfile();
         }
         catch (Exception ex)
         {
@@ -664,6 +689,7 @@ public partial class MainViewModel : ObservableObject
             foreach (var mod in list.Where(m => m.IsEnabled != enabled))
                 _modService.ToggleMod(GameFolderPath, mod);
             RefreshMods();
+            AutoSaveProfile();
             StatusMessage = enabled ? $"Включено: {list.Count}." : $"Отключено: {list.Count}.";
         }
         catch (Exception ex)
@@ -696,6 +722,7 @@ public partial class MainViewModel : ObservableObject
             }
             SelectedMod = null;
             ApplyFilter();
+            AutoSaveProfile();
             StatusMessage = $"Удалено модов: {list.Count} (бэкапы в Mods_Backup).";
         }
         catch (Exception ex)
