@@ -335,15 +335,26 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void RefreshMods()
     {
+        // Запоминаем выделение по именам, чтобы восстановить после перескана
+        var selectedNames = _allMods.Where(m => m.IsSelected).Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var focusedName = SelectedMod?.Name;
+
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
         {
             _allMods = new List<ModItem>();
             Mods.Clear();
+            SelectedMod = null;
             OnPropertyChanged(nameof(EnabledCount));
+            OnPropertyChanged(nameof(TotalCount));
             return;
         }
 
         _allMods = _modService.ScanMods(GameFolderPath);
+        foreach (var mod in _allMods)
+            mod.IsSelected = selectedNames.Contains(mod.Name);
+        SelectedMod = string.IsNullOrEmpty(focusedName)
+            ? null
+            : _allMods.FirstOrDefault(m => m.Name.Equals(focusedName, StringComparison.OrdinalIgnoreCase));
         ApplyFilter();
     }
 
@@ -605,34 +616,21 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private static List<ModItem> ToModList(System.Collections.IList? selected)
+    [RelayCommand]
+    private void EnableSelectedMods()
     {
-        var list = new List<ModItem>();
-        if (selected == null)
-            return list;
-        foreach (var item in selected)
-        {
-            if (item is ModItem mod)
-                list.Add(mod);
-        }
-        return list;
+        SetSelectedModsEnabled(true);
     }
 
     [RelayCommand]
-    private void EnableSelectedMods(System.Collections.IList? selected)
+    private void DisableSelectedMods()
     {
-        SetSelectedModsEnabled(selected, true);
+        SetSelectedModsEnabled(false);
     }
 
-    [RelayCommand]
-    private void DisableSelectedMods(System.Collections.IList? selected)
+    private void SetSelectedModsEnabled(bool enabled)
     {
-        SetSelectedModsEnabled(selected, false);
-    }
-
-    private void SetSelectedModsEnabled(System.Collections.IList? selected, bool enabled)
-    {
-        var list = ToModList(selected);
+        var list = _allMods.Where(m => m.IsSelected).ToList();
         if (list.Count == 0 || string.IsNullOrEmpty(GameFolderPath))
             return;
         if (!EnsureGameNotRunning("переключать моды"))
@@ -652,9 +650,9 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void DeleteSelectedMods(System.Collections.IList? selected)
+    private void DeleteSelectedMods()
     {
-        var list = ToModList(selected);
+        var list = _allMods.Where(m => m.IsSelected).ToList();
         if (list.Count == 0)
             return;
         if (!EnsureGameNotRunning("удалять моды"))

@@ -26,5 +26,9 @@ public partial class ModItem : ObservableObject
     [ObservableProperty]
     private string _folderPath = string.Empty;
 
+    /// <summary>Выделение в списке. Хранится в модели, чтобы переживать RefreshMods.</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
     public bool IsDisabled => !IsEnabled;
 }
