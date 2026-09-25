@@ -97,3 +97,17 @@ public class GameLauncherServiceTests
         }
     }
 }
+
+public class UpdateCheckServiceTests
+{
+    [Theory]
+    [InlineData("v1.2.0", "1.1.0", 1)]
+    [InlineData("1.1.0", "1.1.0", 0)]
+    [InlineData("v1.0.9", "1.1.0", -1)]
+    [InlineData("v2.0", "1.9.9", 1)]
+    [InlineData("v1.1.0-beta", "1.1.0", 0)]
+    public void CompareVersions_Works(string tag, string current, int expected)
+    {
+        Assert.Equal(expected, Math.Sign(UpdateCheckService.CompareVersions(tag, current)));
+    }
+}

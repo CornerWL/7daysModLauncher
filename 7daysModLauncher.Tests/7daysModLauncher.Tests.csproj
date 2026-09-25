@@ -24,6 +24,7 @@
     <Compile Include="..\Services\GamePathHelper.cs" Link="Linked\GamePathHelper.cs" />
     <Compile Include="..\Services\GameLauncherService.cs" Link="Linked\GameLauncherService.cs" />
     <Compile Include="..\Services\AppLogger.cs" Link="Linked\AppLogger.cs" />
+    <Compile Include="..\Services\UpdateCheckService.cs" Link="Linked\UpdateCheckService.cs" />
   </ItemGroup>
 
 </Project>

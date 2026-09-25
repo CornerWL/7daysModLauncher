@@ -21,6 +21,9 @@ public partial class ModItem : ObservableObject
     private string? _description;
 
     [ObservableProperty]
+    private string? _website;
+
+    [ObservableProperty]
     private string _folderPath = string.Empty;
 
     public bool IsDisabled => !IsEnabled;

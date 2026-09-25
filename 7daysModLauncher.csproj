@@ -9,6 +9,9 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>SevenDaysModLauncher</RootNamespace>
     <AssemblyName>7daysModLauncher</AssemblyName>
+    <Version>1.1.0</Version>
+    <FileVersion>1.1.0</FileVersion>
+    <InformationalVersion>1.1.0</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

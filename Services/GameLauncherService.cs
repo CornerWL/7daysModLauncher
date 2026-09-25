@@ -10,6 +10,7 @@ public interface IGameLauncherService
 {
     string? FindExe(string gameFolder);
     bool TryLaunch(string gameFolder, out string error);
+    bool IsGameRunning();
 }
 
 public sealed class GameLauncherService : IGameLauncherService
@@ -61,6 +62,28 @@ public sealed class GameLauncherService : IGameLauncherService
         {
             error = ex.Message;
             AppLogger.Error("Failed to launch game", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Игра запущена? Трогать моды в этот момент нельзя (лок файлов, битые папки).
+    /// </summary>
+    public bool IsGameRunning()
+    {
+        try
+        {
+            string[] names = { "7DaysToDie", "7DaysToDie_EAC", "7dtd" };
+            foreach (var n in names)
+            {
+                if (Process.GetProcessesByName(n).Length > 0)
+                    return true;
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"IsGameRunning check failed: {ex.Message}");
             return false;
         }
     }

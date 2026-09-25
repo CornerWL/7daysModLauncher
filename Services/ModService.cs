@@ -37,7 +37,7 @@ public class ModService
     private static ModItem CreateModItem(string folderPath, bool isEnabled)
     {
         var name = Path.GetFileName(folderPath);
-        var (version, author, description, displayName) = TryReadModInfo(folderPath);
+        var (version, author, description, displayName, website) = TryReadModInfo(folderPath);
 
         return new ModItem
         {
@@ -46,28 +46,29 @@ public class ModService
             Version = version,
             Author = author,
             Description = description,
+            Website = website,
             FolderPath = folderPath
         };
     }
 
     /// <summary>
     /// Читает ModInfo.xml в обоих распространенных форматах:
-    /// 1) &lt;ModInfo Name="..." Author="..." Version="..." ...&gt; (&lt;Description&gt;...&gt;)
+    /// 1) &lt;ModInfo Name="..." Author="..." Version="..." Website="..." ...&gt; (&lt;Description&gt;...&gt;)
     /// 2) &lt;ModInfo&gt;&lt;Name&gt;...&lt;Version value="..."/&gt;... (формат 7DTD v2)
-    /// Возвращает (version, author, description, displayName).
+    /// Возвращает (version, author, description, displayName, website).
     /// </summary>
-    private static (string? Version, string? Author, string? Description, string? DisplayName) TryReadModInfo(string modFolder)
+    private static (string? Version, string? Author, string? Description, string? DisplayName, string? Website) TryReadModInfo(string modFolder)
     {
         try
         {
             var modInfoPath = Path.Combine(modFolder, "ModInfo.xml");
             if (!File.Exists(modInfoPath))
-                return (null, null, null, null);
+                return (null, null, null, null, null);
 
             var doc = System.Xml.Linq.XDocument.Load(modInfoPath);
             var root = doc.Root;
             if (root == null)
-                return (null, null, null, null);
+                return (null, null, null, null, null);
 
             // Формат 1: атрибуты
             string? version = root.Attribute("Version")?.Value
@@ -76,6 +77,7 @@ public class ModService
             string? author = root.Attribute("Author")?.Value ?? root.Element("Author")?.Value;
             string? description = root.Attribute("Description")?.Value ?? root.Element("Description")?.Value;
             string? displayName = root.Attribute("Name")?.Value ?? root.Element("Name")?.Value;
+            string? website = root.Attribute("Website")?.Value ?? root.Element("Website")?.Value;
 
             // Формат 2: <ModInfo><Version value="1.0" /> ...
             if (string.IsNullOrWhiteSpace(version))
@@ -83,24 +85,67 @@ public class ModService
                 var vEl = root.Descendants("Version").FirstOrDefault();
                 version = vEl?.Attribute("value")?.Value ?? vEl?.Value;
             }
+            if (string.IsNullOrWhiteSpace(website))
+                website = root.Descendants("Website").FirstOrDefault()?.Value;
 
             return (
                 string.IsNullOrWhiteSpace(version) ? null : version.Trim(),
                 string.IsNullOrWhiteSpace(author) ? null : author.Trim(),
                 string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
-                string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim());
+                string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim(),
+                string.IsNullOrWhiteSpace(website) ? null : website.Trim());
         }
         catch (Exception ex)
         {
             AppLogger.Warn($"Failed to read ModInfo.xml in '{modFolder}': {ex.Message}");
         }
 
-        return (null, null, null, null);
+        return (null, null, null, null, null);
     }
 
     private static string? TryReadVersion(string modFolder) => TryReadModInfo(modFolder).Version;
 
-    public async Task InstallModAsync(string gameFolder, string zipPath, IProgress<double>? progress = null)
+    public string GetBackupPath(string gameFolder) => Path.Combine(gameFolder, "Mods_Backup");
+
+    /// <summary>
+    /// Перемещает существующую папку мода в Mods_Backup/&lt;name&gt;_yyyyMMdd_HHmmss.
+    /// Возвращает путь бэкапа или null, если бэкапить нечего.
+    /// </summary>
+    public string? BackupExistingMod(string gameFolder, string modName)
+    {
+        var backupRoot = GetBackupPath(gameFolder);
+        Directory.CreateDirectory(backupRoot);
+
+        string? existing = null;
+        var inMods = Path.Combine(GetModsPath(gameFolder), modName);
+        var inDisabled = Path.Combine(GetDisabledModsPath(gameFolder), modName);
+        if (Directory.Exists(inMods))
+            existing = inMods;
+        else if (Directory.Exists(inDisabled))
+            existing = inDisabled;
+
+        if (existing == null)
+            return null;
+
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var backupPath = Path.Combine(backupRoot, $"{modName}_{stamp}");
+        int i = 1;
+        while (Directory.Exists(backupPath))
+            backupPath = Path.Combine(backupRoot, $"{modName}_{stamp}_{i++}");
+
+        Directory.Move(existing, backupPath);
+        AppLogger.Info($"Backed up mod '{modName}' to '{backupPath}'");
+        return backupPath;
+    }
+
+    public bool ModExists(string gameFolder, string modName)
+        => Directory.Exists(Path.Combine(GetModsPath(gameFolder), modName))
+        || Directory.Exists(Path.Combine(GetDisabledModsPath(gameFolder), modName));
+
+    public Task InstallModAsync(string gameFolder, string zipPath, IProgress<double>? progress = null)
+        => InstallModAsync(gameFolder, zipPath, progress, CancellationToken.None);
+
+    public async Task InstallModAsync(string gameFolder, string zipPath, IProgress<double>? progress, CancellationToken cancellationToken)
     {
         // Создаем папки, если их нет
         var modsPath = GetModsPath(gameFolder);
@@ -116,41 +161,55 @@ public class ModService
 
         try
         {
-            progress?.Report(0.1);
-            await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, tempFolder, overwriteFiles: true));
-            progress?.Report(0.4);
+            progress?.Report(0.02);
+            await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, tempFolder, overwriteFiles: true), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(0.25);
 
             var modFolders = FindModFolders(tempFolder, zipPath);
             if (modFolders.Count == 0)
                 throw new InvalidOperationException("Не удалось найти папку мода в архиве.");
 
-            progress?.Report(0.6);
-            int done = 0;
+            // Честный прогресс: считаем файлы заранее
+            var allFiles = new List<(string Source, string ModFolder)>();
+            foreach (var mf in modFolders)
+                foreach (var f in Directory.GetFiles(mf, "*", SearchOption.AllDirectories))
+                    allFiles.Add((f, mf));
+            int totalFiles = Math.Max(1, allFiles.Count);
+            int copiedFiles = 0;
+
+            // Бэкапим существующие моды с теми же именами вместо молчаливого удаления
+            var plannedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var modFolder in modFolders)
             {
-                var modName = Path.GetFileName(modFolder);
-                if (modFolder == tempFolder)
-                    modName = Path.GetFileNameWithoutExtension(zipPath);
+                var modName = ResolveModName(modFolder, tempFolder, zipPath);
+                plannedNames.Add(modName);
+            }
+            foreach (var modName in plannedNames)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (ModExists(gameFolder, modName))
+                    BackupExistingMod(gameFolder, modName);
+            }
 
-                modName = string.Join("_", modName.Split(Path.GetInvalidFileNameChars()));
-                if (string.IsNullOrWhiteSpace(modName))
-                    modName = Path.GetFileNameWithoutExtension(zipPath);
-
+            foreach (var modFolder in modFolders)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var modName = ResolveModName(modFolder, tempFolder, zipPath);
                 var targetPath = Path.Combine(modsPath, modName);
-                if (Directory.Exists(targetPath))
-                {
-                    AppLogger.Warn($"Overwriting existing mod '{modName}' at '{targetPath}'");
-                    Directory.Delete(targetPath, true);
-                }
-                // Не затираем отключенную копию молча: удаляем конфликт, чтобы не было дублей
-                var disabledTarget = Path.Combine(disabledPath, modName);
-                if (Directory.Exists(disabledTarget))
-                    Directory.Delete(disabledTarget, true);
+                Directory.CreateDirectory(targetPath);
 
-                await Task.Run(() => CopyDirectory(modFolder, targetPath));
+                foreach (var (src, root) in allFiles.Where(x => x.ModFolder == modFolder))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var rel = Path.GetRelativePath(root, src);
+                    var dest = Path.Combine(targetPath, rel);
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                    File.Copy(src, dest, true);
+                    copiedFiles++;
+                    progress?.Report(0.25 + 0.75 * copiedFiles / totalFiles);
+                }
                 AppLogger.Info($"Installed mod '{modName}' from '{zipPath}'");
-                done++;
-                progress?.Report(0.6 + 0.4 * done / modFolders.Count);
             }
             progress?.Report(1.0);
         }
@@ -166,6 +225,18 @@ public class ModService
                 AppLogger.Warn($"Failed to cleanup temp '{tempFolder}': {ex.Message}");
             }
         }
+    }
+
+    private static string ResolveModName(string modFolder, string tempFolder, string zipPath)
+    {
+        var modName = Path.GetFileName(modFolder);
+        if (modFolder == tempFolder)
+            modName = Path.GetFileNameWithoutExtension(zipPath);
+
+        modName = string.Join("_", modName.Split(Path.GetInvalidFileNameChars()));
+        if (string.IsNullOrWhiteSpace(modName))
+            modName = Path.GetFileNameWithoutExtension(zipPath);
+        return modName;
     }
 
     /// <summary>
@@ -265,11 +336,56 @@ public class ModService
 
     public void DeleteMod(ModItem mod)
     {
-        if (Directory.Exists(mod.FolderPath))
-            Directory.Delete(mod.FolderPath, true);
+        DeleteModWithBackup(mod, null);
     }
 
-    public void ApplyProfile(string gameFolder, Profile profile)
+    /// <summary>
+    /// Удаление с бэкапом: папка переезжает в Mods_Backup рядом с игрой.
+    /// Возвращает путь бэкапа (для показа пользователю).
+    /// </summary>
+    public string? DeleteModWithBackup(ModItem mod, string? gameFolder)
+    {
+        if (string.IsNullOrEmpty(mod.FolderPath) || !Directory.Exists(mod.FolderPath))
+            return null;
+
+        try
+        {
+            string backupRoot;
+            if (!string.IsNullOrEmpty(gameFolder))
+                backupRoot = GetBackupPath(gameFolder);
+            else
+            {
+                // Выводим корень бэкапа из родителя: <game>/Mods[/_Disabled] -> <game>/Mods_Backup
+                var parent = Path.GetDirectoryName(mod.FolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                var gameRoot = parent != null ? Path.GetDirectoryName(parent) : null;
+                backupRoot = string.IsNullOrEmpty(gameRoot)
+                    ? Path.Combine(Path.GetTempPath(), "7dtd_Mods_Backup")
+                    : Path.Combine(gameRoot, "Mods_Backup");
+            }
+            Directory.CreateDirectory(backupRoot);
+
+            var modName = Path.GetFileName(mod.FolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var backupPath = Path.Combine(backupRoot, $"{modName}_{stamp}");
+            int i = 1;
+            while (Directory.Exists(backupPath))
+                backupPath = Path.Combine(backupRoot, $"{modName}_{stamp}_{i++}");
+
+            Directory.Move(mod.FolderPath, backupPath);
+            AppLogger.Info($"Deleted mod '{modName}' (backed up to '{backupPath}')");
+            return backupPath;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("DeleteModWithBackup failed", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Применяет профиль. Возвращает имена модов из профиля, которых нет на диске.
+    /// </summary>
+    public List<string> ApplyProfile(string gameFolder, Profile profile)
     {
         var modsPath = GetModsPath(gameFolder);
         var disabledPath = GetDisabledModsPath(gameFolder);
@@ -277,6 +393,7 @@ public class ModService
         Directory.CreateDirectory(modsPath);
         Directory.CreateDirectory(disabledPath);
 
+        var missing = new List<string>();
         foreach (var modState in profile.Mods)
         {
             var modPath = Path.Combine(modsPath, modState.Name);
@@ -284,6 +401,12 @@ public class ModService
 
             var isInMods = Directory.Exists(modPath);
             var isInDisabled = Directory.Exists(disabledPath2);
+
+            if (!isInMods && !isInDisabled)
+            {
+                missing.Add(modState.Name);
+                continue;
+            }
 
             if (modState.IsEnabled && isInDisabled)
             {
@@ -298,6 +421,9 @@ public class ModService
                 Directory.Move(modPath, disabledPath2);
             }
         }
+        if (missing.Count > 0)
+            AppLogger.Warn($"ApplyProfile: missing mods: {string.Join(", ", missing)}");
+        return missing;
     }
 
     public string FindGameFolder()

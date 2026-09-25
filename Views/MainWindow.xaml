@@ -146,6 +146,15 @@
                         <Button Content="Disable all" Command="{Binding DisableAllModsCommand}"
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
                                 IsEnabled="{Binding IsNotBusy}"/>
+                        <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SortBy}"
+                                  Width="110" Margin="0,0,4,0" ToolTip="Сортировка"
+                                  IsEnabled="{Binding IsNotBusy}"/>
+                        <Button Content="{Binding SortDirectionLabel}" Command="{Binding ToggleSortDirectionCommand}"
+                                Padding="10,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                                ToolTip="Порядок сортировки"/>
+                        <ComboBox ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding StatusFilter}"
+                                  Width="110" Margin="0,0,8,0" ToolTip="Фильтр по статусу"
+                                  IsEnabled="{Binding IsNotBusy}"/>
                     </WrapPanel>
                     <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                              Width="220" MinHeight="32"
@@ -167,9 +176,18 @@
                                Foreground="{DynamicResource MutedBrush}"/>
                 </Grid>
 
-                <ListView Grid.Row="2" ItemsSource="{Binding Mods}"
-                          VirtualizingStackPanel.IsVirtualizing="True"
-                          VirtualizingStackPanel.VirtualizationMode="Recycling">
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="280"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0">
+                        <ListView x:Name="ModsList" ItemsSource="{Binding Mods}"
+                                  SelectedItem="{Binding SelectedMod}"
+                                  SelectionMode="Extended"
+                                  VirtualizingStackPanel.IsVirtualizing="True"
+                                  VirtualizingStackPanel.VirtualizationMode="Recycling">
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <Border Background="#FF101724" BorderBrush="{DynamicResource BorderBrush}"
@@ -230,14 +248,97 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
-                            Visibility="{Binding Mods.Count, Converter={StaticResource CountToVisibilityConverter}}">
-                    <TextBlock Text="📦" FontSize="40" HorizontalAlignment="Center" Opacity="0.6"/>
-                    <TextBlock Text="No mods found" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
-                               Foreground="{DynamicResource ForegroundBrush}" Margin="0,8,0,2"/>
-                    <TextBlock Text="Install a mod or select the game folder" FontSize="12" HorizontalAlignment="Center"
-                               Foreground="{DynamicResource SecondaryForegroundBrush}"/>
-                </StackPanel>
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding Mods.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                            <TextBlock Text="📦" FontSize="40" HorizontalAlignment="Center" Opacity="0.6"/>
+                            <TextBlock Text="No mods found" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource ForegroundBrush}" Margin="0,8,0,2"/>
+                            <TextBlock Text="Install a mod or select the game folder" FontSize="12" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ===== Details pane ===== -->
+                    <Border Grid.Column="1" Background="#FF101724" BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="14" Margin="8,0,2,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBlock Text="DETAILS" FontSize="10" FontWeight="Bold"
+                                           Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,8"/>
+                                <TextBlock Text="{Binding SelectedMod.Name, TargetNullValue='—'}" FontSize="16"
+                                           FontWeight="Bold" Foreground="{DynamicResource ForegroundBrush}"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding SelectedMod.Author, TargetNullValue=''}" FontSize="12"
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,2,0,8"/>
+                                <WrapPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Border Background="#FF16233A" CornerRadius="8" Padding="8,4" Margin="0,0,6,0">
+                                        <TextBlock Text="{Binding SelectedMod.Version, TargetNullValue='—'}" FontSize="12"
+                                                   Foreground="{DynamicResource AccentHoverBrush}" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <Border Background="#FF16233A" CornerRadius="8" Padding="8,4">
+                                        <TextBlock FontSize="12"
+                                                   Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="—"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedMod.IsEnabled}" Value="True">
+                                                            <Setter Property="Text" Value="Enabled"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding SelectedMod.IsEnabled}" Value="False">
+                                                            <Setter Property="Text" Value="Disabled"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </WrapPanel>
+                                <TextBlock Text="DESCRIPTION" FontSize="10" FontWeight="Bold"
+                                           Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding SelectedMod.Description, TargetNullValue='No description.'}"
+                                           FontSize="12" Foreground="{DynamicResource ForegroundBrush}"
+                                           TextWrapping="Wrap" Margin="0,0,0,8" MaxHeight="140"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Content="🌐 Website" Command="{Binding OpenWebsiteCommand}"
+                                        CommandParameter="{Binding SelectedMod.Website}"
+                                        Padding="10,6" Margin="0,0,0,8" Style="{DynamicResource GhostButtonStyle}"
+                                        IsEnabled="{Binding SelectedMod.Website, Converter={StaticResource SelectedProfileNotEmptyConverter}}"/>
+                                <TextBlock Text="FOLDER" FontSize="10" FontWeight="Bold"
+                                           Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding SelectedMod.FolderPath, TargetNullValue='—'}" FontSize="11"
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <WrapPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button Content="On/Off" Command="{Binding ToggleModCommand}"
+                                            CommandParameter="{Binding SelectedMod}"
+                                            Padding="12,6" Margin="0,0,6,0" Style="{DynamicResource GhostButtonStyle}"/>
+                                    <Button Content="📂" Command="{Binding OpenModFolderCommand}"
+                                            CommandParameter="{Binding SelectedMod}"
+                                            Padding="12,6" Margin="0,0,6,0" Style="{DynamicResource IconButtonStyle}"
+                                            ToolTip="Открыть папку мода"/>
+                                    <Button Content="🗑" Command="{Binding DeleteModCommand}"
+                                            CommandParameter="{Binding SelectedMod}"
+                                            Padding="12,6" Style="{DynamicResource DangerButtonStyle}"
+                                            ToolTip="Удалить мод"/>
+                                </WrapPanel>
+                                <TextBlock Text="BULK (selected in list)" FontSize="10" FontWeight="Bold"
+                                           Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+                                <WrapPanel Orientation="Horizontal">
+                                    <Button Content="Enable" Command="{Binding EnableSelectedModsCommand}"
+                                            CommandParameter="{Binding SelectedItems, ElementName=ModsList}"
+                                            Padding="10,6" Margin="0,0,6,4" Style="{DynamicResource GhostButtonStyle}"/>
+                                    <Button Content="Disable" Command="{Binding DisableSelectedModsCommand}"
+                                            CommandParameter="{Binding SelectedItems, ElementName=ModsList}"
+                                            Padding="10,6" Margin="0,0,6,4" Style="{DynamicResource GhostButtonStyle}"/>
+                                    <Button Content="Delete" Command="{Binding DeleteSelectedModsCommand}"
+                                            CommandParameter="{Binding SelectedItems, ElementName=ModsList}"
+                                            Padding="10,6" Margin="0,0,0,4" Style="{DynamicResource DangerButtonStyle}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
             </Grid>
         </Border>
 
@@ -247,9 +348,16 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            <ProgressBar Grid.Row="0" Value="{Binding ProgressValue, Mode=OneWay}" Maximum="1" Height="8"
-                         Margin="0,0,0,8"
-                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <Grid Grid.Row="0" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <ProgressBar Grid.Column="0" Value="{Binding ProgressValue, Mode=OneWay}" Maximum="1" Height="8"
+                             Margin="0,0,8,8" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="✕ Cancel" Command="{Binding CancelInstallCommand}"
+                        Padding="12,4" Margin="0,0,0,8" Style="{DynamicResource DangerButtonStyle}"/>
+            </Grid>
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

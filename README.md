@@ -7,13 +7,17 @@ A Windows desktop application built with .NET 8 (WPF) for managing mods for 7 Da
 ## Features
 
 * Install mods from ZIP (file dialog + drag & drop, multi-mod archives supported)
-* Enable / disable mods (toggle-switch), Enable All / Disable All
-* Search by name / author / version
-* Open mod folder, delete mod
-* Profiles: save / apply / delete
+  with per-file progress, cancel, and automatic backup of overwritten mods to `Mods_Backup/`
+* Enable / disable mods (toggle-switch), Enable All / Disable All, bulk enable/disable/delete on multi-selection
+* Search by name / author / version, sort (Name/Author/Version/Status), filter (All/Enabled/Disabled)
+* Details pane: description, website link, folder path, per-mod actions
+* Safe delete: mods move to `Mods_Backup/<name>_<timestamp>` instead of permanent delete
+* Guard: no install/toggle/delete/profile-apply while the game is running
+* Profiles: save / apply / delete, with a report of profile mods missing on disk
 * ▶ Play: launch the game directly from the launcher (7DaysToDie.exe / _EAC)
 * Auto-detect game folder (Steam registry + libraryfolders.vdf) with exe validation
-* Full ModInfo.xml parsing: Name, Author, Version (attr/element/value), Description
+* Full ModInfo.xml parsing: Name, Author, Version (attr/element/value), Description, Website
+* Update check on startup against GitHub releases
 * Settings + profiles in `%LocalAppData%/7daysModLauncher` (auto-migration from exe folder)
 * File logging in `%LocalAppData%/7daysModLauncher/Logs/launcher.log` + global exception handler
 
@@ -48,6 +52,20 @@ Distribute a single file:
 ```text
 release_single/7daysModLauncher.exe  (~68 MB, no DLLs needed, no runtime needed)
 ```
+
+### Releases (CI)
+
+Push a tag to build and attach the exe to a GitHub Release automatically:
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+### Installer (optional)
+
+`installer.iss` — Inno Setup script, builds `installer_out/7daysModLauncher-Setup-*.exe`
+from `release_single/7daysModLauncher.exe`. Requires `iscc`.
 
 ## Windows 11 notes
 

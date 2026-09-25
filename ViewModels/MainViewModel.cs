@@ -32,6 +32,18 @@ public partial class MainViewModel : ObservableObject
     private string _searchText = string.Empty;
 
     [ObservableProperty]
+    private string _sortBy = "Name";
+
+    [ObservableProperty]
+    private bool _sortAscending = true;
+
+    [ObservableProperty]
+    private string _statusFilter = "All";
+
+    [ObservableProperty]
+    private ModItem? _selectedMod;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
     private bool _isBusy;
 
@@ -53,6 +65,10 @@ public partial class MainViewModel : ObservableObject
 
     public int EnabledCount => _allMods.Count(m => m.IsEnabled);
 
+    public int TotalCount => _allMods.Count;
+
+    public string SortDirectionLabel => SortAscending ? "▲" : "▼";
+
     public MainViewModel() : this(new SettingsService(), new ModService(), new ProfileService(), new GameLauncherService())
     {
     }
@@ -66,6 +82,28 @@ public partial class MainViewModel : ObservableObject
 
         LoadSettings();
         RefreshProfiles();
+        _ = CheckForUpdatesAsync();
+    }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var info = await new UpdateCheckService().CheckAsync();
+            if (info?.HasUpdate == true)
+            {
+                StatusMessage = $"Доступна новая версия {info.Tag} (у вас {info.Current}).";
+                var res = MessageBox.Show(
+                    $"Вышла новая версия {info.Tag} (у вас {info.Current}).\nОткрыть страницу релиза?",
+                    "Доступно обновление", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (res == MessageBoxResult.Yes && !string.IsNullOrWhiteSpace(info.Url))
+                    Process.Start(new ProcessStartInfo { FileName = info.Url, UseShellExecute = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Update check UI failed: {ex.Message}");
+        }
     }
 
     private void RefreshProfiles()
@@ -79,11 +117,28 @@ public partial class MainViewModel : ObservableObject
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSortByChanged(string value) => ApplyFilter();
+    partial void OnStatusFilterChanged(string value) => ApplyFilter();
+
+    partial void OnSortAscendingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(SortDirectionLabel));
+        ApplyFilter();
+    }
+
+    public string[] SortOptions { get; } = { "Name", "Author", "Version", "Status" };
+    public string[] StatusFilterOptions { get; } = { "All", "Enabled", "Disabled" };
 
     private void ApplyFilter()
     {
         var q = SearchText?.Trim();
-        IEnumerable<ModItem> query = _allMods.OrderBy(m => m.Name);
+        IEnumerable<ModItem> query = _allMods;
+
+        if (StatusFilter == "Enabled")
+            query = query.Where(m => m.IsEnabled);
+        else if (StatusFilter == "Disabled")
+            query = query.Where(m => !m.IsEnabled);
+
         if (!string.IsNullOrWhiteSpace(q))
         {
             query = query.Where(m =>
@@ -91,8 +146,26 @@ public partial class MainViewModel : ObservableObject
                 (m.Author != null && m.Author.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
                 (m.Version != null && m.Version.Contains(q, StringComparison.OrdinalIgnoreCase)));
         }
+
+        query = SortBy switch
+        {
+            "Author" => SortAscending
+                ? query.OrderBy(m => m.Author ?? "").ThenBy(m => m.Name)
+                : query.OrderByDescending(m => m.Author ?? "").ThenBy(m => m.Name),
+            "Version" => SortAscending
+                ? query.OrderBy(m => m.Version ?? "").ThenBy(m => m.Name)
+                : query.OrderByDescending(m => m.Version ?? "").ThenBy(m => m.Name),
+            "Status" => SortAscending
+                ? query.OrderByDescending(m => m.IsEnabled).ThenBy(m => m.Name)
+                : query.OrderBy(m => m.IsEnabled).ThenBy(m => m.Name),
+            _ => SortAscending
+                ? query.OrderBy(m => m.Name)
+                : query.OrderByDescending(m => m.Name),
+        };
+
         Mods = new ObservableCollection<ModItem>(query);
         OnPropertyChanged(nameof(EnabledCount));
+        OnPropertyChanged(nameof(TotalCount));
     }
 
     private string NormalizeGameFolderPath(string path) => GamePathHelper.NormalizeGameFolderPath(path);
@@ -241,6 +314,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
             return;
+        if (!EnsureGameNotRunning("переключать моды"))
+            return;
         try
         {
             foreach (var mod in _allMods.Where(m => m.IsEnabled != enabled).ToList())
@@ -272,6 +347,26 @@ public partial class MainViewModel : ObservableObject
         ApplyFilter();
     }
 
+    private CancellationTokenSource? _installCts;
+
+    private bool EnsureGameNotRunning(string action)
+    {
+        if (_launcherService.IsGameRunning())
+        {
+            MessageBox.Show($"Нельзя: {action}, пока игра запущена.\nЗакройте 7 Days to Die и попробуйте снова.",
+                "Игра запущена", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusMessage = "Дождитесь закрытия игры.";
+            return false;
+        }
+        return true;
+    }
+
+    [RelayCommand]
+    private void CancelInstall()
+    {
+        _installCts?.Cancel();
+    }
+
     [RelayCommand]
     private async Task InstallModAsync()
     {
@@ -280,6 +375,8 @@ public partial class MainViewModel : ObservableObject
             MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        if (!EnsureGameNotRunning("устанавливать моды"))
+            return;
 
         var dialog = new OpenFileDialog
         {
@@ -290,19 +387,43 @@ public partial class MainViewModel : ObservableObject
         if (dialog.ShowDialog() != true)
             return;
 
+        await InstallZipsAsync(new[] { dialog.FileName });
+    }
+
+    private async Task InstallZipsAsync(IEnumerable<string> zipFiles)
+    {
+        _installCts?.Dispose();
+        _installCts = new CancellationTokenSource();
+        var token = _installCts.Token;
+
         IsBusy = true;
         ProgressValue = 0;
         StatusMessage = "Установка мода...";
 
         try
         {
-            var progress = new Progress<double>(value => ProgressValue = value);
-            await _modService.InstallModAsync(GameFolderPath, dialog.FileName, progress);
-            StatusMessage = "Мод успешно установлен!";
+            int index = 0;
+            foreach (var zip in zipFiles)
+            {
+                token.ThrowIfCancellationRequested();
+                index++;
+                StatusMessage = zipFiles.Count() > 1
+                    ? $"Установка {index}/{zipFiles.Count()}: {Path.GetFileName(zip)}..."
+                    : $"Установка: {Path.GetFileName(zip)}...";
+                var progress = new Progress<double>(value => ProgressValue = value);
+                await _modService.InstallModAsync(GameFolderPath, zip, progress, token);
+            }
+            StatusMessage = zipFiles.Count() > 1 ? "Моды установлены (старые версии — в Mods_Backup)." : "Мод установлен (старая версия — в Mods_Backup).";
             RefreshMods();
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Установка отменена.";
+            AppLogger.Info("Install cancelled by user");
         }
         catch (Exception ex)
         {
+            AppLogger.Error("Install failed", ex);
             MessageBox.Show($"Ошибка установки мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             StatusMessage = "Ошибка установки мода.";
         }
@@ -320,6 +441,8 @@ public partial class MainViewModel : ObservableObject
             MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        if (!EnsureGameNotRunning("устанавливать моды"))
+            return;
 
         var zipFiles = files.Where(f => Path.GetExtension(f).Equals(".zip", StringComparison.OrdinalIgnoreCase)).ToList();
         if (!zipFiles.Any())
@@ -328,29 +451,8 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        IsBusy = true;
-        StatusMessage = "Установка модов...";
-
-        try
-        {
-            foreach (var zipFile in zipFiles)
-            {
-                var progress = new Progress<double>(value => ProgressValue = value);
-                await _modService.InstallModAsync(GameFolderPath, zipFile, progress);
-            }
-            StatusMessage = "Моды успешно установлены!";
-            RefreshMods();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Ошибка установки мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            StatusMessage = "Ошибка установки мода.";
-        }
-        finally
-        {
-            IsBusy = false;
-            ProgressValue = 0;
-        }
+        await InstallZipsAsync(zipFiles);
+        ProgressValue = 0;
     }
 
     [RelayCommand]
@@ -358,18 +460,21 @@ public partial class MainViewModel : ObservableObject
     {
         if (mod == null)
             return;
+        if (!EnsureGameNotRunning("удалять моды"))
+            return;
 
-        var result = MessageBox.Show($"Удалить мод \"{mod.Name}\"?", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        var result = MessageBox.Show($"Удалить мод \"{mod.Name}\"?\n\nКопия сохранится в Mods_Backup.", "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes)
             return;
 
         try
         {
-            _modService.DeleteMod(mod);
+            var backup = _modService.DeleteModWithBackup(mod, GameFolderPath);
             _allMods.Remove(mod);
-            AppLogger.Info($"Deleted mod '{mod.Name}'");
             ApplyFilter();
-            StatusMessage = $"Мод \"{mod.Name}\" удалён.";
+            StatusMessage = backup != null
+                ? $"Мод \"{mod.Name}\" удалён (бэкап: {backup})."
+                : $"Мод \"{mod.Name}\" удалён.";
         }
         catch (Exception ex)
         {
@@ -382,6 +487,8 @@ public partial class MainViewModel : ObservableObject
     private void ToggleMod(ModItem? mod)
     {
         if (mod == null || string.IsNullOrEmpty(GameFolderPath))
+            return;
+        if (!EnsureGameNotRunning("переключать моды"))
             return;
 
         try
@@ -432,6 +539,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(SelectedProfile))
             return;
+        if (!EnsureGameNotRunning("применять профиль"))
+            return;
 
         var profile = _profileService.LoadProfile(SelectedProfile);
         if (profile == null)
@@ -442,9 +551,14 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            _modService.ApplyProfile(GameFolderPath, profile);
+            var missing = _modService.ApplyProfile(GameFolderPath, profile);
             RefreshMods();
-            StatusMessage = $"Профиль \"{SelectedProfile}\" применён.";
+            StatusMessage = missing.Count == 0
+                ? $"Профиль \"{SelectedProfile}\" применён."
+                : $"Профиль применён, нет на диске ({missing.Count}): {string.Join(", ", missing.Take(5))}{(missing.Count > 5 ? "..." : "")}";
+            if (missing.Count > 0)
+                MessageBox.Show($"Профиль применён частично.\nМоды не найдены на диске:\n• {string.Join("\n• ", missing)}",
+                    "Нет некоторых модов", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
@@ -466,5 +580,106 @@ public partial class MainViewModel : ObservableObject
         RefreshProfiles();
         SelectedProfile = string.Empty;
         StatusMessage = "Профиль удалён.";
+    }
+
+    [RelayCommand]
+    private void ToggleSortDirection()
+    {
+        SortAscending = !SortAscending;
+    }
+
+    [RelayCommand]
+    private void OpenWebsite(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+        try
+        {
+            var fixed_url = url.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? url : "https://" + url;
+            Process.Start(new ProcessStartInfo { FileName = fixed_url, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("OpenWebsite failed", ex);
+            MessageBox.Show($"Не удалось открыть ссылку:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static List<ModItem> ToModList(System.Collections.IList? selected)
+    {
+        var list = new List<ModItem>();
+        if (selected == null)
+            return list;
+        foreach (var item in selected)
+        {
+            if (item is ModItem mod)
+                list.Add(mod);
+        }
+        return list;
+    }
+
+    [RelayCommand]
+    private void EnableSelectedMods(System.Collections.IList? selected)
+    {
+        SetSelectedModsEnabled(selected, true);
+    }
+
+    [RelayCommand]
+    private void DisableSelectedMods(System.Collections.IList? selected)
+    {
+        SetSelectedModsEnabled(selected, false);
+    }
+
+    private void SetSelectedModsEnabled(System.Collections.IList? selected, bool enabled)
+    {
+        var list = ToModList(selected);
+        if (list.Count == 0 || string.IsNullOrEmpty(GameFolderPath))
+            return;
+        if (!EnsureGameNotRunning("переключать моды"))
+            return;
+        try
+        {
+            foreach (var mod in list.Where(m => m.IsEnabled != enabled))
+                _modService.ToggleMod(GameFolderPath, mod);
+            RefreshMods();
+            StatusMessage = enabled ? $"Включено: {list.Count}." : $"Отключено: {list.Count}.";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("SetSelectedModsEnabled failed", ex);
+            MessageBox.Show($"Ошибка:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteSelectedMods(System.Collections.IList? selected)
+    {
+        var list = ToModList(selected);
+        if (list.Count == 0)
+            return;
+        if (!EnsureGameNotRunning("удалять моды"))
+            return;
+
+        var result = MessageBox.Show($"Удалить {list.Count} модов?\nКопии сохранятся в Mods_Backup.",
+            "Подтверждение", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            foreach (var mod in list)
+            {
+                _modService.DeleteModWithBackup(mod, GameFolderPath);
+                _allMods.Remove(mod);
+            }
+            SelectedMod = null;
+            ApplyFilter();
+            StatusMessage = $"Удалено модов: {list.Count} (бэкапы в Mods_Backup).";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("DeleteSelectedMods failed", ex);
+            MessageBox.Show($"Ошибка удаления:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }
