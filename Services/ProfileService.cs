@@ -13,8 +13,29 @@ public class ProfileService
 
     public ProfileService()
     {
-        _profilesDirectory = Path.Combine(AppContext.BaseDirectory, "Profiles");
+        _profilesDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "7daysModLauncher", "Profiles");
         Directory.CreateDirectory(_profilesDirectory);
+
+        // Однократная миграция профилей рядом с exe
+        try
+        {
+            var legacyDir = Path.Combine(AppContext.BaseDirectory, "Profiles");
+            if (Directory.Exists(legacyDir))
+            {
+                foreach (var file in Directory.GetFiles(legacyDir, "*.json"))
+                {
+                    var dest = Path.Combine(_profilesDirectory, Path.GetFileName(file));
+                    if (!File.Exists(dest))
+                        File.Copy(file, dest);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Profile migration failed: {ex.Message}");
+        }
     }
 
     public List<Profile> GetAllProfiles()
@@ -32,8 +53,9 @@ public class ProfileService
                 if (profile != null)
                     profiles.Add(profile);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.Warn($"Skipping broken profile '{file}': {ex.Message}");
             }
         }
         return profiles.OrderBy(p => p.Name).ToList();
@@ -50,8 +72,9 @@ public class ProfileService
             var json = File.ReadAllText(filePath);
             return JsonSerializer.Deserialize<Profile>(json);
         }
-        catch
+        catch (Exception ex)
         {
+            AppLogger.Warn($"Failed to load profile '{name}': {ex.Message}");
             return null;
         }
     }

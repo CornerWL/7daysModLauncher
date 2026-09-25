@@ -5,206 +5,262 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:SevenDaysModLauncher.ViewModels"
         mc:Ignorable="d"
-        Title="7 Days to Die Mod Launcher"
-        Height="600"
-        Width="900"
-        MinHeight="400"
-        MinWidth="600"
+        Title="7 Days to Die — Mod Launcher"
+        Height="680"
+        Width="1020"
+        MinHeight="480"
+        MinWidth="640"
         WindowStartupLocation="CenterScreen"
         AllowDrop="True"
         Drop="Window_Drop"
         DragOver="Window_DragOver"
+        FontFamily="Segoe UI Variable, Segoe UI"
         Background="{DynamicResource WindowBackgroundBrush}">
 
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
 
-    <Grid Margin="16">
+    <Grid Margin="20">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Game Folder Section -->
-        <Grid Grid.Row="0" Margin="0,0,0,12">
+        <!-- ===== Header ===== -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-
-<TextBlock Grid.Column="0"
-                        Text="Game Folder:"
-                        VerticalAlignment="Center"
-                        Foreground="{DynamicResource ForegroundBrush}"
-                        Margin="0,0,8,0"/>
-
-            <TextBox Grid.Column="1"
-                     Text="{Binding GameFolderPath, Mode=OneWay}"
-                     IsReadOnly="True"
-                     VerticalContentAlignment="Center"
-                     Padding="8,4"
-                     Background="{DynamicResource ControlBackgroundBrush}"
-                     Foreground="{DynamicResource ForegroundBrush}"
-                     BorderBrush="{DynamicResource BorderBrush}"/>
-
-<Button Grid.Column="2"
-                     Content="Browse..."
-                     Command="{Binding BrowseGameFolderCommand}"
-                     Margin="8,0,0,0"
-                     Padding="16,4"
-                     Style="{DynamicResource AccentButtonStyle}"/>
-<Button Grid.Column="3"
-                     Content="Auto"
-                     Command="{Binding AutoDetectGameFolderCommand}"
-                     Margin="8,0,0,0"
-                     Padding="16,4"
-                     Style="{DynamicResource AccentButtonStyle}"/>
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="7 DAYS TO DIE" FontSize="22" FontWeight="ExtraBold"
+                           Foreground="{DynamicResource ForegroundBrush}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                    <Border Background="#FF16233A" CornerRadius="8" Padding="8,3" Margin="0,0,8,0">
+                        <TextBlock Text="{Binding Mods.Count, StringFormat='{}{0} mods'}" FontSize="12"
+                                   Foreground="{DynamicResource AccentHoverBrush}" FontWeight="SemiBold"/>
+                    </Border>
+                    <TextBlock Text="{Binding EnabledCount, StringFormat='{}{0} enabled'}" FontSize="12"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="＋ Install mod" Command="{Binding InstallModCommand}"
+                        Padding="18,10" Margin="0,0,10,0"
+                        Style="{DynamicResource AccentButtonStyle}"
+                        IsEnabled="{Binding IsNotBusy}"/>
+                <Button Content="▶  Play" Command="{Binding LaunchGameCommand}"
+                        Padding="28,10" MinWidth="130"
+                        Style="{DynamicResource PlayButtonStyle}"
+                        IsEnabled="{Binding CanLaunchGame}" ToolTip="Запустить игру"/>
+            </StackPanel>
         </Grid>
 
-        <!-- Toolbar -->
-        <DockPanel Grid.Row="1" Margin="0,0,0,8">
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-<Button Content="Install Mod"
-                     Command="{Binding InstallModCommand}"
-                     Padding="16,6"
-                     Style="{DynamicResource AccentButtonStyle}"
-                     IsEnabled="{Binding IsNotBusy}"/>
+        <!-- ===== Game folder card ===== -->
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="14" Padding="14" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="38" Height="38" CornerRadius="10"
+                        Background="#FF16233A" Margin="0,0,12,0">
+                    <TextBlock Text="📁" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="GAME FOLDER" FontSize="10" FontWeight="Bold"
+                               Foreground="{DynamicResource MutedBrush}"/>
+                    <TextBox Text="{Binding GameFolderPath, Mode=OneWay}" IsReadOnly="True"
+                             BorderThickness="0" Background="Transparent" MinHeight="0" Padding="0"
+                             Foreground="{DynamicResource ForegroundBrush}" FontSize="13"
+                             ToolTip="{Binding GameFolderPath}"/>
+                </StackPanel>
+                <Button Grid.Column="2" Content="Browse" Command="{Binding BrowseGameFolderCommand}"
+                        Margin="12,0,0,0" Padding="16,8" Style="{DynamicResource GhostButtonStyle}"/>
+                <Button Grid.Column="3" Content="Auto" Command="{Binding AutoDetectGameFolderCommand}"
+                        Margin="8,0,0,0" Padding="16,8" Style="{DynamicResource GhostButtonStyle}"
+                        ToolTip="Найти автоматически"/>
+            </Grid>
+        </Border>
 
-<Button Content="Refresh List"
-                     Command="{Binding RefreshModsCommand}"
-                     Padding="16,6"
-                     Margin="8,0,0,0"
-                     IsEnabled="{Binding IsNotBusy}"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Margin="16,0,0,0">
-<Button Content="Save Profile"
-        Command="{Binding SaveProfileCommand}"
-        Padding="8,6"
-        Margin="0,0,4,0"
-        IsEnabled="{Binding IsNotBusy}"/>
+        <!-- ===== Toolbar: только профили ===== -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                        CornerRadius="10" Padding="10,6" Margin="0,0,0,4">
+                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="PROFILES" FontSize="10" FontWeight="Bold"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+                                  MinWidth="140" Width="190" Margin="0,0,8,0"
+                                  IsEnabled="{Binding IsNotBusy}"
+                                  SelectionChanged="ComboBox_SelectionChanged"
+                                  ToolTip="Профили"/>
+                        <Button Content="💾 Save" Command="{Binding SaveProfileCommand}"
+                                Padding="14,7" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                                IsEnabled="{Binding IsNotBusy}" ToolTip="Сохранить текущий набор модов как профиль"/>
+                        <Button Content="Delete" Command="{Binding DeleteProfileCommand}"
+                                Padding="14,7"
+                                Style="{DynamicResource DangerButtonStyle}"
+                                IsEnabled="{Binding SelectedProfile, Converter={StaticResource SelectedProfileNotEmptyConverter}}"
+                                ToolTip="Удалить выбранный профиль"/>
+                    </WrapPanel>
+                </Border>
+            </WrapPanel>
+        </StackPanel>
 
-<ComboBox ItemsSource="{Binding Profiles}"
-          SelectedItem="{Binding SelectedProfile}"
-          Width="150"
-          IsEnabled="{Binding IsNotBusy}"
-          SelectionChanged="ComboBox_SelectionChanged"/>
-
-<Button Content="Delete"
-        Command="{Binding DeleteProfileCommand}"
-        Padding="8,6"
-        Margin="4,0,0,0"
-        IsEnabled="{Binding SelectedProfile, Converter={StaticResource SelectedProfileNotEmptyConverter}}"/>
-            </StackPanel>
-        </DockPanel>
-
-        <!-- Mods List -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource ControlBackgroundBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="4">
+        <!-- ===== Mods list card ===== -->
+        <Border Grid.Row="3" Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="16" Padding="10">
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
-                <Grid Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" Height="32">
+                <!-- Actions + search row -->
+                <Grid Grid.Row="0" Margin="10,4,10,8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="40"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-<TextBlock Grid.Column="0" Text="On" Margin="8,0" VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" FontWeight="SemiBold"/>
-<TextBlock Grid.Column="1" Text="Mod Name" Margin="8,0" VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" FontWeight="SemiBold"/>
-<TextBlock Grid.Column="2" Text="Version" Margin="8,0" VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" FontWeight="SemiBold"/>
-<TextBlock Grid.Column="3" Text="Actions" Margin="8,0" VerticalAlignment="Center" Foreground="{DynamicResource ForegroundBrush}" FontWeight="SemiBold"/>
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="⟳ Refresh" Command="{Binding RefreshModsCommand}"
+                                Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                                IsEnabled="{Binding IsNotBusy}"/>
+                        <Button Content="Enable all" Command="{Binding EnableAllModsCommand}"
+                                Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                                IsEnabled="{Binding IsNotBusy}"/>
+                        <Button Content="Disable all" Command="{Binding DisableAllModsCommand}"
+                                Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                                IsEnabled="{Binding IsNotBusy}"/>
+                    </WrapPanel>
+                    <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="220" MinHeight="32"
+                             ToolTip="Поиск по имени / автору / версии"/>
                 </Grid>
 
-                <!-- List -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Mods}" Margin="0,4">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Padding="0,4">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="120"/>
-                                            <ColumnDefinition Width="100"/>
-                                        </Grid.ColumnDefinitions>
+                <Grid Grid.Row="1" Margin="10,0,10,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="56"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="120"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="1" Text="MOD" FontSize="10" FontWeight="Bold"
+                               Foreground="{DynamicResource MutedBrush}"/>
+                    <TextBlock Grid.Column="2" Text="VERSION" FontSize="10" FontWeight="Bold"
+                               Foreground="{DynamicResource MutedBrush}"/>
+                    <TextBlock Grid.Column="3" Text="ACTIONS" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"
+                               Foreground="{DynamicResource MutedBrush}"/>
+                </Grid>
 
-                                        <CheckBox Grid.Column="0"
-                                                  IsChecked="{Binding IsEnabled, Mode=OneWay}"
-                                                  HorizontalAlignment="Center"
-                                                  VerticalAlignment="Center"
-                                                  Command="{Binding DataContext.ToggleModCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                  CommandParameter="{Binding}"/>
+                <ListView Grid.Row="2" ItemsSource="{Binding Mods}"
+                          VirtualizingStackPanel.IsVirtualizing="True"
+                          VirtualizingStackPanel.VirtualizationMode="Recycling">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="#FF101724" BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1" CornerRadius="12" Padding="12,10" Margin="2,0,6,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="120"/>
+                                    </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding Name}"
-                                                   Margin="8,0"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource ForegroundBrush}"/>
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled, Mode=OneWay}"
+                                              HorizontalAlignment="Left" VerticalAlignment="Center"
+                                              Command="{Binding DataContext.ToggleModCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              CommandParameter="{Binding}" ToolTip="Включить / отключить"/>
 
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{Binding Version, TargetNullValue='—'}"
-                                                   Margin="8,0"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Fill" Value="#FF5B657D"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsEnabled}" Value="True">
+                                                                <Setter Property="Fill" Value="{DynamicResource SuccessBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Description}"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Author}" FontSize="12"
+                                                   Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                   TextTrimming="CharacterEllipsis" Margin="16,1,0,0"/>
+                                    </StackPanel>
 
-<Button Grid.Column="3"
-                                                 Content="Delete"
-                                                 Command="{Binding DataContext.DeleteModCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                 CommandParameter="{Binding}"
-                                                 Padding="8,2"
-                                                 Margin="4,0"
-                                                 Style="{DynamicResource DangerButtonStyle}"/>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                                    <Border Grid.Column="2" Background="#FF16233A" CornerRadius="8"
+                                            Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Version, TargetNullValue='—'}" FontSize="12"
+                                                   Foreground="{DynamicResource AccentHoverBrush}" FontWeight="SemiBold"/>
+                                    </Border>
 
-                <!-- Empty state -->
-<TextBlock Grid.Row="1"
-                            Text="No mods found. Install a mod or select the game folder."
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="{DynamicResource SecondaryForegroundBrush}"
-                            Visibility="{Binding Mods.Count, Converter={StaticResource CountToVisibilityConverter}}"/>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button Content="📂" Command="{Binding DataContext.OpenModFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" Padding="10,5" Margin="0,0,6,0"
+                                                Style="{DynamicResource IconButtonStyle}" ToolTip="Открыть папку мода" FontSize="14"/>
+                                        <Button Content="🗑" Command="{Binding DataContext.DeleteModCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" Padding="10,5"
+                                                Style="{DynamicResource DangerButtonStyle}" ToolTip="Удалить мод" FontSize="14"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="{Binding Mods.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                    <TextBlock Text="📦" FontSize="40" HorizontalAlignment="Center" Opacity="0.6"/>
+                    <TextBlock Text="No mods found" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource ForegroundBrush}" Margin="0,8,0,2"/>
+                    <TextBlock Text="Install a mod or select the game folder" FontSize="12" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Progress -->
-        <Grid Grid.Row="3" Margin="0,8,0,0" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}">
-            <ProgressBar Value="{Binding ProgressValue, Mode=OneWay}"
-                         Maximum="1"
-                         Height="20"
-                         Background="{DynamicResource ControlBackgroundBrush}"
-                         Foreground="{DynamicResource AccentBrush}"/>
-            <TextBlock Text="{Binding StatusMessage}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Foreground="{DynamicResource ForegroundBrush}"/>
+        <!-- ===== Footer ===== -->
+        <Grid Grid.Row="4" Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ProgressBar Grid.Row="0" Value="{Binding ProgressValue, Mode=OneWay}" Maximum="1" Height="8"
+                         Margin="0,0,0,8"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" FontSize="12"
+                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="drag &amp; drop .zip anywhere to install" FontSize="11"
+                           Foreground="{DynamicResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+            </Grid>
         </Grid>
-
-        <!-- Status Bar -->
-        <TextBlock Grid.Row="4"
-                   Text="{Binding StatusMessage}"
-                   Margin="0,8,0,0"
-                   Foreground="{DynamicResource SecondaryForegroundBrush}"
-                   TextTrimming="CharacterEllipsis"/>
     </Grid>
 </Window>

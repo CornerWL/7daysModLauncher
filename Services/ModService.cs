@@ -37,38 +37,68 @@ public class ModService
     private static ModItem CreateModItem(string folderPath, bool isEnabled)
     {
         var name = Path.GetFileName(folderPath);
-        var version = TryReadVersion(folderPath);
+        var (version, author, description, displayName) = TryReadModInfo(folderPath);
 
         return new ModItem
         {
-            Name = name,
+            Name = string.IsNullOrWhiteSpace(displayName) ? name : displayName,
             IsEnabled = isEnabled,
             Version = version,
+            Author = author,
+            Description = description,
             FolderPath = folderPath
         };
     }
 
-    private static string? TryReadVersion(string modFolder)
+    /// <summary>
+    /// Читает ModInfo.xml в обоих распространенных форматах:
+    /// 1) &lt;ModInfo Name="..." Author="..." Version="..." ...&gt; (&lt;Description&gt;...&gt;)
+    /// 2) &lt;ModInfo&gt;&lt;Name&gt;...&lt;Version value="..."/&gt;... (формат 7DTD v2)
+    /// Возвращает (version, author, description, displayName).
+    /// </summary>
+    private static (string? Version, string? Author, string? Description, string? DisplayName) TryReadModInfo(string modFolder)
     {
         try
         {
             var modInfoPath = Path.Combine(modFolder, "ModInfo.xml");
-            if (File.Exists(modInfoPath))
+            if (!File.Exists(modInfoPath))
+                return (null, null, null, null);
+
+            var doc = System.Xml.Linq.XDocument.Load(modInfoPath);
+            var root = doc.Root;
+            if (root == null)
+                return (null, null, null, null);
+
+            // Формат 1: атрибуты
+            string? version = root.Attribute("Version")?.Value
+                ?? root.Element("Version")?.Value
+                ?? root.Element("Version")?.Attribute("value")?.Value;
+            string? author = root.Attribute("Author")?.Value ?? root.Element("Author")?.Value;
+            string? description = root.Attribute("Description")?.Value ?? root.Element("Description")?.Value;
+            string? displayName = root.Attribute("Name")?.Value ?? root.Element("Name")?.Value;
+
+            // Формат 2: <ModInfo><Version value="1.0" /> ...
+            if (string.IsNullOrWhiteSpace(version))
             {
-                var doc = System.Xml.Linq.XDocument.Load(modInfoPath);
-                var versionAttr = doc.Root?.Attribute("Version");
-                if (versionAttr != null)
-                    return versionAttr.Value;
-
-                var versionElement = doc.Root?.Element("Version");
-                if (versionElement != null)
-                    return versionElement.Value;
+                var vEl = root.Descendants("Version").FirstOrDefault();
+                version = vEl?.Attribute("value")?.Value ?? vEl?.Value;
             }
-        }
-        catch { }
 
-        return null;
+            return (
+                string.IsNullOrWhiteSpace(version) ? null : version.Trim(),
+                string.IsNullOrWhiteSpace(author) ? null : author.Trim(),
+                string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim());
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Failed to read ModInfo.xml in '{modFolder}': {ex.Message}");
+        }
+
+        return (null, null, null, null);
     }
+
+    private static string? TryReadVersion(string modFolder) => TryReadModInfo(modFolder).Version;
 
     public async Task InstallModAsync(string gameFolder, string zipPath, IProgress<double>? progress = null)
     {
@@ -78,59 +108,109 @@ public class ModService
         var disabledPath = GetDisabledModsPath(gameFolder);
         Directory.CreateDirectory(disabledPath);
 
-        var tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        if (!File.Exists(zipPath))
+            throw new FileNotFoundException($"Архив не найден: {zipPath}");
+
+        var tempFolder = Path.Combine(Path.GetTempPath(), "7dtd_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempFolder);
 
         try
         {
             progress?.Report(0.1);
-            await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, tempFolder));
+            await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, tempFolder, overwriteFiles: true));
             progress?.Report(0.4);
 
-            var modFolder = FindModFolder(tempFolder);
-            if (modFolder == null)
+            var modFolders = FindModFolders(tempFolder, zipPath);
+            if (modFolders.Count == 0)
                 throw new InvalidOperationException("Не удалось найти папку мода в архиве.");
 
-            // Determine mod name: if the found folder is the temp root (no dedicated folder), use zip file name
-            var modName = Path.GetFileName(modFolder);
-            if (modFolder == tempFolder)
-            {
-                modName = Path.GetFileNameWithoutExtension(zipPath);
-            }
-            var targetPath = Path.Combine(modsPath, modName);
-            if (Directory.Exists(targetPath))
-                Directory.Delete(targetPath, true);
-
             progress?.Report(0.6);
-            await Task.Run(() => CopyDirectory(modFolder, targetPath));
+            int done = 0;
+            foreach (var modFolder in modFolders)
+            {
+                var modName = Path.GetFileName(modFolder);
+                if (modFolder == tempFolder)
+                    modName = Path.GetFileNameWithoutExtension(zipPath);
+
+                modName = string.Join("_", modName.Split(Path.GetInvalidFileNameChars()));
+                if (string.IsNullOrWhiteSpace(modName))
+                    modName = Path.GetFileNameWithoutExtension(zipPath);
+
+                var targetPath = Path.Combine(modsPath, modName);
+                if (Directory.Exists(targetPath))
+                {
+                    AppLogger.Warn($"Overwriting existing mod '{modName}' at '{targetPath}'");
+                    Directory.Delete(targetPath, true);
+                }
+                // Не затираем отключенную копию молча: удаляем конфликт, чтобы не было дублей
+                var disabledTarget = Path.Combine(disabledPath, modName);
+                if (Directory.Exists(disabledTarget))
+                    Directory.Delete(disabledTarget, true);
+
+                await Task.Run(() => CopyDirectory(modFolder, targetPath));
+                AppLogger.Info($"Installed mod '{modName}' from '{zipPath}'");
+                done++;
+                progress?.Report(0.6 + 0.4 * done / modFolders.Count);
+            }
             progress?.Report(1.0);
         }
         finally
         {
-            if (Directory.Exists(tempFolder))
-                Directory.Delete(tempFolder, true);
+            try
+            {
+                if (Directory.Exists(tempFolder))
+                    Directory.Delete(tempFolder, true);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"Failed to cleanup temp '{tempFolder}': {ex.Message}");
+            }
         }
+    }
+
+    /// <summary>
+    /// Находит все папки модов в распакованном архиве.
+    /// Поддерживает архивы с несколькими модами (каждый с ModInfo.xml).
+    /// </summary>
+    private static List<string> FindModFolders(string extractedPath, string zipPath)
+    {
+        // Если в корне есть ModInfo.xml — это и есть папка мода
+        if (File.Exists(Path.Combine(extractedPath, "ModInfo.xml")))
+            return new List<string> { extractedPath };
+
+        var result = new List<string>();
+        foreach (var dir in Directory.GetDirectories(extractedPath))
+        {
+            if (File.Exists(Path.Combine(dir, "ModInfo.xml")))
+            {
+                result.Add(dir);
+            }
+            else
+            {
+                // Вложенность вида Collection/ModName/ModInfo.xml
+                foreach (var sub in Directory.GetDirectories(dir))
+                {
+                    if (File.Exists(Path.Combine(sub, "ModInfo.xml")))
+                        result.Add(sub);
+                }
+            }
+        }
+
+        if (result.Count > 0)
+            return result;
+
+        // Если ModInfo.xml не найден, берём первую подпапку (legacy-поведение)
+        var subDirs = Directory.GetDirectories(extractedPath);
+        if (subDirs.Length == 1)
+            return new List<string> { subDirs[0] };
+
+        // Иначе считаем корнем мод (по имени архива)
+        return new List<string> { extractedPath };
     }
 
     private static string? FindModFolder(string extractedPath)
     {
-        // Если в корне есть ModInfo.xml — это и есть папка мода
-        if (File.Exists(Path.Combine(extractedPath, "ModInfo.xml")))
-            return extractedPath;
-
-        // Ищем в подпапках
-        foreach (var dir in Directory.GetDirectories(extractedPath))
-        {
-            if (File.Exists(Path.Combine(dir, "ModInfo.xml")))
-                return dir;
-        }
-
-        // Если ModInfo.xml не найден, берём первую подпапку
-        var subDirs = Directory.GetDirectories(extractedPath);
-        if (subDirs.Length == 1)
-            return subDirs[0];
-
-        return extractedPath;
+        return FindModFolders(extractedPath, string.Empty).FirstOrDefault();
     }
 
     private static void CopyDirectory(string sourceDir, string targetDir)
@@ -277,7 +357,10 @@ public class ModService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Steam registry lookup failed: {ex.Message}");
+        }
 
         return string.Empty;
     }

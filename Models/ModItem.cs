@@ -15,6 +15,12 @@ public partial class ModItem : ObservableObject
     private string? _version;
 
     [ObservableProperty]
+    private string? _author;
+
+    [ObservableProperty]
+    private string? _description;
+
+    [ObservableProperty]
     private string _folderPath = string.Empty;
 
     public bool IsDisabled => !IsEnabled;

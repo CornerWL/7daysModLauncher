@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,12 +18,18 @@ public partial class MainViewModel : ObservableObject
     private readonly SettingsService _settingsService;
     private readonly ModService _modService;
     private readonly ProfileService _profileService;
+    private readonly IGameLauncherService _launcherService;
+    private List<ModItem> _allMods = new();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanLaunchGame))]
     private string _gameFolderPath = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<ModItem> _mods = new();
+
+    [ObservableProperty]
+    private string _searchText = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -42,11 +49,20 @@ public partial class MainViewModel : ObservableObject
 
     public bool IsNotBusy => !IsBusy;
 
-    public MainViewModel()
+    public bool CanLaunchGame => !string.IsNullOrEmpty(GameFolderPath) && Directory.Exists(GameFolderPath);
+
+    public int EnabledCount => _allMods.Count(m => m.IsEnabled);
+
+    public MainViewModel() : this(new SettingsService(), new ModService(), new ProfileService(), new GameLauncherService())
     {
-        _settingsService = new SettingsService();
-        _modService = new ModService();
-        _profileService = new ProfileService();
+    }
+
+    public MainViewModel(SettingsService settingsService, ModService modService, ProfileService profileService, IGameLauncherService launcherService)
+    {
+        _settingsService = settingsService;
+        _modService = modService;
+        _profileService = profileService;
+        _launcherService = launcherService;
 
         LoadSettings();
         RefreshProfiles();
@@ -62,20 +78,24 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private string NormalizeGameFolderPath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
 
-        var trimmed = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var folderName = Path.GetFileName(trimmed);
-        if (folderName.Equals("Mods", StringComparison.OrdinalIgnoreCase) ||
-            folderName.Equals("Mods_Disabled", StringComparison.OrdinalIgnoreCase))
+    private void ApplyFilter()
+    {
+        var q = SearchText?.Trim();
+        IEnumerable<ModItem> query = _allMods.OrderBy(m => m.Name);
+        if (!string.IsNullOrWhiteSpace(q))
         {
-            return Path.GetDirectoryName(trimmed) ?? path;
+            query = query.Where(m =>
+                m.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                (m.Author != null && m.Author.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                (m.Version != null && m.Version.Contains(q, StringComparison.OrdinalIgnoreCase)));
         }
-        return path;
+        Mods = new ObservableCollection<ModItem>(query);
+        OnPropertyChanged(nameof(EnabledCount));
     }
+
+    private string NormalizeGameFolderPath(string path) => GamePathHelper.NormalizeGameFolderPath(path);
 
     private void LoadSettings()
     {
@@ -107,10 +127,7 @@ public partial class MainViewModel : ObservableObject
         if (!string.IsNullOrEmpty(GameFolderPath) && Directory.Exists(GameFolderPath))
         {
             // Убедиться, что папки Mods и Mods_Disabled существуют
-            var modsPath = System.IO.Path.Combine(GameFolderPath, "Mods");
-            var disabledPath = System.IO.Path.Combine(GameFolderPath, "Mods_Disabled");
-            System.IO.Directory.CreateDirectory(modsPath);
-            System.IO.Directory.CreateDirectory(disabledPath);
+            GamePathHelper.EnsureModDirectories(GameFolderPath);
             RefreshMods();
         }
     }
@@ -125,19 +142,26 @@ public partial class MainViewModel : ObservableObject
     {
         var dialog = new System.Windows.Forms.FolderBrowserDialog
         {
-            Description = "Выберите папку с игрой 7 Days to Die"
+            Description = "Выберите папку с игрой 7 Days to Die (где лежит 7DaysToDie.exe)"
         };
 
         if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
             GameFolderPath = NormalizeGameFolderPath(dialog.SelectedPath);
+            if (!GamePathHelper.IsValidGameFolder(GameFolderPath))
+            {
+                var res = MessageBox.Show(
+                    $"В папке не найден {GamePathHelper.GameExeName}.\n\n{GameFolderPath}\n\nВсе равно использовать эту папку?",
+                    "Похоже, это не папка игры",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (res != MessageBoxResult.Yes)
+                    return;
+            }
             // Ensure required directories exist
-            var modsPath = System.IO.Path.Combine(GameFolderPath, "Mods");
-            var disabledPath = System.IO.Path.Combine(GameFolderPath, "Mods_Disabled");
-            System.IO.Directory.CreateDirectory(modsPath);
-            System.IO.Directory.CreateDirectory(disabledPath);
+            GamePathHelper.EnsureModDirectories(GameFolderPath);
             SaveSettings();
             RefreshMods();
+            OnPropertyChanged(nameof(CanLaunchGame));
         }
     }
 
@@ -149,12 +173,10 @@ public partial class MainViewModel : ObservableObject
         {
             GameFolderPath = NormalizeGameFolderPath(detectedPath);
             // Ensure required directories exist
-            var modsPath = System.IO.Path.Combine(GameFolderPath, "Mods");
-            var disabledPath = System.IO.Path.Combine(GameFolderPath, "Mods_Disabled");
-            System.IO.Directory.CreateDirectory(modsPath);
-            System.IO.Directory.CreateDirectory(disabledPath);
+            GamePathHelper.EnsureModDirectories(GameFolderPath);
             SaveSettings();
             RefreshMods();
+            OnPropertyChanged(nameof(CanLaunchGame));
             StatusMessage = "Папка игры найдена автоматически!";
         }
         else
@@ -165,16 +187,89 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void LaunchGame()
+    {
+        if (!CanLaunchGame)
+        {
+            MessageBox.Show("Сначала выберите папку с игрой.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!_launcherService.TryLaunch(GameFolderPath, out var error))
+        {
+            MessageBox.Show($"Не удалось запустить игру:\n{error}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = "Ошибка запуска игры.";
+        }
+        else
+        {
+            StatusMessage = "Игра запускается...";
+        }
+    }
+
+    [RelayCommand]
+    private void OpenModFolder(ModItem? mod)
+    {
+        try
+        {
+            var path = mod?.FolderPath;
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            {
+                MessageBox.Show("Папка мода не найдена.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("OpenModFolder failed", ex);
+            MessageBox.Show($"Не удалось открыть папку:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void EnableAllMods()
+    {
+        SetAllModsEnabled(true);
+    }
+
+    [RelayCommand]
+    private void DisableAllMods()
+    {
+        SetAllModsEnabled(false);
+    }
+
+    private void SetAllModsEnabled(bool enabled)
+    {
+        if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
+            return;
+        try
+        {
+            foreach (var mod in _allMods.Where(m => m.IsEnabled != enabled).ToList())
+            {
+                _modService.ToggleMod(GameFolderPath, mod);
+            }
+            RefreshMods();
+            StatusMessage = enabled ? "Все моды включены." : "Все моды отключены.";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("SetAllModsEnabled failed", ex);
+            MessageBox.Show($"Ошибка:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
     private void RefreshMods()
     {
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
         {
+            _allMods = new List<ModItem>();
             Mods.Clear();
+            OnPropertyChanged(nameof(EnabledCount));
             return;
         }
 
-        var mods = _modService.ScanMods(GameFolderPath);
-        Mods = new ObservableCollection<ModItem>(mods);
+        _allMods = _modService.ScanMods(GameFolderPath);
+        ApplyFilter();
     }
 
     [RelayCommand]
@@ -271,11 +366,14 @@ public partial class MainViewModel : ObservableObject
         try
         {
             _modService.DeleteMod(mod);
-            Mods.Remove(mod);
+            _allMods.Remove(mod);
+            AppLogger.Info($"Deleted mod '{mod.Name}'");
+            ApplyFilter();
             StatusMessage = $"Мод \"{mod.Name}\" удалён.";
         }
         catch (Exception ex)
         {
+            AppLogger.Error("DeleteMod failed", ex);
             MessageBox.Show($"Ошибка удаления мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -290,7 +388,7 @@ public partial class MainViewModel : ObservableObject
         {
             _modService.ToggleMod(GameFolderPath, mod);
             // Update IsEnabled based on actual folder location after move
-            var modsPath = System.IO.Path.Combine(GameFolderPath, "Mods");
+            var modsPath = GamePathHelper.GetModsPath(GameFolderPath);
             mod.IsEnabled = mod.FolderPath.StartsWith(modsPath, System.StringComparison.OrdinalIgnoreCase);
             StatusMessage = $"Мод \"{mod.Name}\" {(mod.IsEnabled ? "включён" : "отключён")}.";
             // Refresh the list to ensure UI reflects the current state
@@ -298,6 +396,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            AppLogger.Error("ToggleMod failed", ex);
             MessageBox.Show($"Ошибка переключения мода:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -319,7 +418,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(profileName))
             return;
 
-        var profile = _profileService.CreateFromCurrentState(Mods.ToList());
+        var profile = _profileService.CreateFromCurrentState(_allMods.ToList());
         profile.Name = profileName;
         
         _profileService.SaveProfile(profile);

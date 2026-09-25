@@ -15,4 +15,12 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
   </ItemGroup>
 
+  <!-- Тесты лежат внутри репозитория — исключить из сборки приложения -->
+  <ItemGroup>
+    <Compile Remove="7daysModLauncher.Tests/**/*.cs" />
+    <EmbeddedResource Remove="7daysModLauncher.Tests/**/*" />
+    <None Remove="7daysModLauncher.Tests/**/*" />
+    <Page Remove="7daysModLauncher.Tests/**/*" />
+  </ItemGroup>
+
 </Project>
