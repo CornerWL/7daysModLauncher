@@ -45,6 +45,7 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
+    [NotifyPropertyChangedFor(nameof(ShowStatus))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -60,6 +61,31 @@ public partial class MainViewModel : ObservableObject
     private string _selectedProfile = string.Empty;
 
     public bool IsNotBusy => !IsBusy;
+
+    /// <summary>Тост виден, когда есть сообщение и не идет установка.</summary>
+    public bool ShowStatus => !IsBusy && !string.IsNullOrEmpty(StatusMessage);
+
+    private int _statusSeq;
+
+    partial void OnStatusMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(ShowStatus));
+        if (string.IsNullOrEmpty(value))
+            return;
+        // Автоскрытие тоста через 6 секунд
+        var seq = ++_statusSeq;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(6000);
+            if (seq != _statusSeq)
+                return;
+            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (seq == _statusSeq && !IsBusy)
+                    StatusMessage = string.Empty;
+            });
+        });
+    }
 
     public bool CanLaunchGame => !string.IsNullOrEmpty(GameFolderPath) && Directory.Exists(GameFolderPath);
 

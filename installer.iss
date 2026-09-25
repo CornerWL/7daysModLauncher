@@ -4,7 +4,7 @@
 
 #define MyAppName "7 days Mod Launcher"
 #define MyAppExeName "7daysModLauncher.exe"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.1"
 
 [Setup]
 AppId={{7D7D7D7D-7DTD-4D4F-4453-4C41554E4348}}

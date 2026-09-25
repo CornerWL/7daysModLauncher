@@ -15,7 +15,7 @@ public sealed class UpdateCheckService
     public record UpdateInfo(bool HasUpdate, string Tag, string Url, string Current);
 
     public static string CurrentVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.0";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.1.1";
 
     public async Task<UpdateInfo?> CheckAsync(CancellationToken token = default)
     {
