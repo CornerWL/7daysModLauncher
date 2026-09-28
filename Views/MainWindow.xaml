@@ -95,57 +95,48 @@
                              ToolTip="{Binding GameFolderPath}"/>
                 </StackPanel>
                 <Button Grid.Column="2" Content="Browse" Command="{Binding BrowseGameFolderCommand}"
-                        Margin="12,0,0,0" Padding="16,8" Style="{DynamicResource GhostButtonStyle}"/>
+                        Margin="12,0,0,0" Padding="14,7" Style="{DynamicResource GhostButtonStyle}"/>
                 <Button Grid.Column="3" Content="Auto" Command="{Binding AutoDetectGameFolderCommand}"
-                        Margin="8,0,0,0" Padding="16,8" Style="{DynamicResource GhostButtonStyle}"
+                        Margin="8,0,0,0" Padding="14,7" Style="{DynamicResource GhostButtonStyle}"
                         ToolTip="Detect automatically"/>
             </Grid>
         </Border>
 
-        <!-- ===== Toolbar: только профили ===== -->
-        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+        <!-- ===== Toolbar: одна строка вместо трех карточек ===== -->
+        <Border Grid.Row="2" Margin="0,0,0,10"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="10,6">
             <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                        CornerRadius="6" Padding="10,6" Margin="0,0,0,4">
-                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="PROFILES" FontSize="10" FontWeight="Bold"
-                                   Foreground="{DynamicResource MutedBrush}"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
-                                  MinWidth="140" Width="190" Margin="0,0,8,0"
-                                  IsEnabled="{Binding IsNotBusy}"
-                                  SelectionChanged="ComboBox_SelectionChanged"
-                                  ToolTip="Profiles"/>
-                        <Button Content="Save" Command="{Binding SaveProfileCommand}"
-                                Padding="14,7" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
-                                IsEnabled="{Binding IsNotBusy}" ToolTip="Save the current mod set as a profile"/>
-                        <Button Content="Delete" Command="{Binding DeleteProfileCommand}"
-                                Padding="14,7"
-                                Style="{DynamicResource DangerButtonStyle}"
-                                IsEnabled="{Binding SelectedProfile, Converter={StaticResource SelectedProfileNotEmptyConverter}}"
-                                ToolTip="Delete the selected profile"/>
-                    </WrapPanel>
-                </Border>
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                        CornerRadius="6" Padding="10,6" Margin="8,0,0,4">
-                    <Button Content="Check updates" Command="{Binding CheckUpdatesCommand}"
-                            Padding="14,7" BorderThickness="0"
-                            Style="{DynamicResource GhostButtonStyle}"
-                            IsEnabled="{Binding IsNotBusy}"
-                            ToolTip="Compare installed versions with Nexus"/>
-                </Border>
-                <Border Background="{DynamicResource CardBackgroundBrush}"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                        CornerRadius="6" Padding="10,6" Margin="8,0,0,4">
-                    <Button Content="{Binding BackupsButtonText}" Command="{Binding ToggleBackupsCommand}"
-                            Padding="14,7" BorderThickness="0"
-                            Style="{DynamicResource GhostButtonStyle}"
-                            ToolTip="Deleted mods: restore or delete forever"/>
-                </Border>
+                <TextBlock Text="PROFILES" FontSize="10" FontWeight="Bold"
+                           Foreground="{DynamicResource MutedBrush}"
+                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"
+                          MinWidth="140" Width="190" Margin="0,0,8,0"
+                          IsEnabled="{Binding IsNotBusy}"
+                          SelectionChanged="ComboBox_SelectionChanged"
+                          ToolTip="Profiles"/>
+                <Button Content="Save" Command="{Binding SaveProfileCommand}"
+                        Padding="14,7" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                        IsEnabled="{Binding IsNotBusy}" ToolTip="Save the current mod set as a profile"/>
+                <Button Content="Delete" Command="{Binding DeleteProfileCommand}"
+                        Padding="14,7" Margin="0,0,8,0"
+                        Style="{DynamicResource DangerButtonStyle}"
+                        IsEnabled="{Binding SelectedProfile, Converter={StaticResource SelectedProfileNotEmptyConverter}}"
+                        ToolTip="Delete the selected profile"/>
+                <Border Width="1" Height="24" Margin="4,0,12,0" VerticalAlignment="Center"
+                        Background="{DynamicResource BorderBrush}"/>
+                <Button Content="Check updates" Command="{Binding CheckUpdatesCommand}"
+                        Padding="14,7" Margin="0,0,8,0"
+                        Style="{DynamicResource GhostButtonStyle}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        ToolTip="Compare installed versions with Nexus"/>
+                <Button Content="{Binding BackupsButtonText}" Command="{Binding ToggleBackupsCommand}"
+                        Padding="14,7"
+                        Style="{DynamicResource GhostButtonStyle}"
+                        ToolTip="Deleted mods: restore or delete forever"/>
             </WrapPanel>
-        </StackPanel>
+        </Border>
 
         <!-- ===== Mods list card ===== -->
         <Border Grid.Row="3" Background="{DynamicResource CardBackgroundBrush}"
@@ -193,12 +184,18 @@
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource DangerButtonStyle}"
                                 ToolTip="Permanently delete all backups"/>
                     </WrapPanel>
-                    <TextBox Grid.Column="1" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                             Width="220" MinHeight="32"
-                             ToolTip="Search by name / author / version"/>
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="220" MinHeight="32"
+                                 ToolTip="Search by name / author / version"/>
+                        <TextBlock Text="Search mods…" IsHitTestVisible="False"
+                                   Margin="14,0,0,0" VerticalAlignment="Center" FontSize="13"
+                                   Foreground="{DynamicResource MutedBrush}"
+                                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource StringEmptyToVisibilityConverter}}"/>
+                    </Grid>
                 </Grid>
 
-                <Grid Grid.Row="1" Margin="0,0,0,8"
+                <Grid Grid.Row="1" Margin="0,0,0,8" Opacity="0.7"
                       Visibility="{Binding ShowBackups, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
