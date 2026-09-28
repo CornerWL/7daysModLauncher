@@ -6,6 +6,7 @@
         xmlns:vm="clr-namespace:SevenDaysModLauncher.ViewModels"
         mc:Ignorable="d"
         Title="7 Days to Die — Mod Launcher"
+        Icon="/logo.ico"
         Height="680"
         Width="1020"
         MinHeight="480"
@@ -35,7 +36,13 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <Border Width="46" Height="46" CornerRadius="6" Margin="0,0,12,0">
+                <Border.Background>
+                    <ImageBrush ImageSource="/logo.jpg" Stretch="UniformToFill"/>
+                </Border.Background>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="7 DAYS TO DIE" FontSize="22" FontWeight="ExtraBold"
                            Foreground="{DynamicResource ForegroundBrush}"/>
                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -46,6 +53,7 @@
                     <TextBlock Text="{Binding EnabledCount, StringFormat='{}{0} enabled'}" FontSize="12"
                                Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"/>
                 </StackPanel>
+            </StackPanel>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="＋ Install mod" Command="{Binding InstallModCommand}"

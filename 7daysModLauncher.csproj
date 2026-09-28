@@ -12,7 +12,13 @@
     <Version>1.1.1</Version>
     <FileVersion>1.1.1</FileVersion>
     <InformationalVersion>1.1.1</InformationalVersion>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="logo.jpg" />
+    <Resource Include="logo.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
