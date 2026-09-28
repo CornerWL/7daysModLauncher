@@ -17,7 +17,9 @@ jobs:
             8.0.x
             10.0.x
       - name: Restore
-        run: dotnet restore 7daysModLauncher.Tests/7daysModLauncher.Tests.csproj
+        run: |
+          dotnet restore 7daysModLauncher.csproj
+          dotnet restore 7daysModLauncher.Tests/7daysModLauncher.Tests.csproj
       - name: Build app
         run: dotnet build 7daysModLauncher.csproj --no-restore -c Release
       - name: Test
