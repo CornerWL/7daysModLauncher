@@ -127,6 +127,15 @@
                                 ToolTip="Delete the selected profile"/>
                     </WrapPanel>
                 </Border>
+                <Border Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                        CornerRadius="6" Padding="10,6" Margin="8,0,0,4">
+                    <Button Content="↑ Check updates" Command="{Binding CheckUpdatesCommand}"
+                            Padding="14,7" BorderThickness="0"
+                            Style="{DynamicResource GhostButtonStyle}"
+                            IsEnabled="{Binding IsNotBusy}"
+                            ToolTip="Compare installed versions with Nexus"/>
+                </Border>
             </WrapPanel>
         </StackPanel>
 
@@ -151,9 +160,6 @@
                         <Button Content="⟳ Refresh" Command="{Binding RefreshModsCommand}"
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
                                 IsEnabled="{Binding IsNotBusy}"/>
-                        <Button Content="↑ Check updates" Command="{Binding CheckUpdatesCommand}"
-                                Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
-                                IsEnabled="{Binding IsNotBusy}" ToolTip="Compare installed versions with Nexus"/>
                         <Button Content="Enable all" Command="{Binding EnableAllModsCommand}"
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
                                 IsEnabled="{Binding IsNotBusy}"/>
