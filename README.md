@@ -92,6 +92,10 @@ Settings and profiles are stored in `%LocalAppData%/7daysModLauncher`
 (`settings.json`, `Profiles/`). Old files next to the executable are migrated automatically.
 Logs: `%LocalAppData%/7daysModLauncher/Logs/launcher.log`.
 
+## License
+
+GPL-3.0 — same as Vortex, MO2 and other managers. See [LICENSE](LICENSE).
+
 ## Project layout
 
 ```text
