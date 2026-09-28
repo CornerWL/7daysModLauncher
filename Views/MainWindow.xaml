@@ -52,6 +52,10 @@
                         Padding="18,10" Margin="0,0,10,0"
                         Style="{DynamicResource AccentButtonStyle}"
                         IsEnabled="{Binding IsNotBusy}"/>
+                <Button Content="⬇ Nexus" Command="{Binding OpenNexusDownloadCommand}"
+                        Padding="18,10" Margin="0,0,10,0"
+                        Style="{DynamicResource GhostButtonStyle}"
+                        IsEnabled="{Binding IsNotBusy}" ToolTip="Nexus Mods: login, browse files, download, check updates"/>
                 <Button Content="▶  Play" Command="{Binding LaunchGameCommand}"
                         Padding="28,10" MinWidth="130"
                         Style="{DynamicResource PlayButtonStyle}"

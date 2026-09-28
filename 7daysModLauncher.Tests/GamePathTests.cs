@@ -178,3 +178,70 @@ public class ApplyProfileTests : IDisposable
         Assert.True(Directory.Exists(Path.Combine(_gameDir, "Mods", "0_TFP_Harmony")));
     }
 }
+
+public class NexusParseTests
+{
+    [Theory]
+    [InlineData("10784", 10784)]
+    [InlineData("  10784  ", 10784)]
+    [InlineData("https://www.nexusmods.com/7daystodie/mods/10784", 10784)]
+    [InlineData("https://www.nexusmods.com/7daystodie/mods/10784?tab=files", 10784)]
+    [InlineData("nxm://7daystodie/mods/10784/files/1", 10784)]
+    [InlineData("not a link", null)]
+    [InlineData("", null)]
+    public void ParseModId_Works(string input, int? expected)
+    {
+        Assert.Equal(expected, NexusApiService.ParseModId(input));
+    }
+
+    [Theory]
+    [InlineData("https://www.nexusmods.com/7daystodie/mods/10784", "7daystodie")]
+    [InlineData("https://www.nexusmods.com/skyrimspecialedition/mods/12604", "skyrimspecialedition")]
+    [InlineData("10784", null)]
+    public void ParseGameDomain_Works(string input, string? expected)
+    {
+        Assert.Equal(expected, NexusApiService.ParseGameDomain(input));
+    }
+}
+
+public class NexusOAuthTests
+{
+    [Fact]
+    public void PkceChallenge_MatchesRfc7636Vector()
+    {
+        // �������� ������ �� RFC 7636, Appendix B
+        const string verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+        Assert.Equal("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+            NexusOAuthService.CreateCodeChallenge(verifier));
+    }
+
+    [Fact]
+    public void PkceVerifier_HasValidLength()
+    {
+        var v = NexusOAuthService.CreateCodeVerifier();
+        Assert.InRange(v.Length, 43, 128);
+        Assert.DoesNotContain("=", v);
+        Assert.DoesNotContain("+", v);
+        Assert.DoesNotContain("/", v);
+    }
+
+    [Fact]
+    public void BuildAuthorizeUrl_RequiresClientId()
+    {
+        var cfg = new NexusOAuthService.OAuthConfig("https://x/auth", "https://x/token", "", "");
+        Assert.Throws<InvalidOperationException>(() =>
+            NexusOAuthService.BuildAuthorizeUrl(cfg, "http://127.0.0.1:1/callback/", "s", "c"));
+    }
+
+    [Fact]
+    public void BuildAuthorizeUrl_ContainsPkceParams()
+    {
+        var cfg = new NexusOAuthService.OAuthConfig("https://x/auth", "https://x/token", "myapp", "");
+        var url = NexusOAuthService.BuildAuthorizeUrl(cfg, "http://127.0.0.1:9/callback/", "state1", "chall1");
+        Assert.Contains("response_type=code", url);
+        Assert.Contains("client_id=myapp", url);
+        Assert.Contains("code_challenge=chall1", url);
+        Assert.Contains("code_challenge_method=S256", url);
+        Assert.Contains("state=state1", url);
+    }
+}

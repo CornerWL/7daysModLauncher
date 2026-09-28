@@ -18,6 +18,10 @@ A Windows desktop application built with .NET 8 (WPF) for managing mods for 7 Da
 * Auto-detect game folder (Steam registry + libraryfolders.vdf) with exe validation
 * Full ModInfo.xml parsing: Name, Author, Version (attr/element/value), Description, Website
 * Update check on startup against GitHub releases
+* Nexus Mods flows: OAuth PKCE login (system browser + localhost callback,
+  endpoints/client id issued by Nexus Support) with personal API key fallback;
+  mod lookup by URL/ID, file listing, one-click download & install (Premium),
+  installed-vs-Nexus version compare. Free accounts: manual ZIP + drag & drop
 * Settings + profiles in `%LocalAppData%/7daysModLauncher` (auto-migration from exe folder)
 * File logging in `%LocalAppData%/7daysModLauncher/Logs/launcher.log` + global exception handler
 

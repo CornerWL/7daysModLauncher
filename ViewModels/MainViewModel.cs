@@ -445,6 +445,29 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task OpenNexusDownloadAsync()
+    {
+        if (string.IsNullOrEmpty(GameFolderPath))
+        {
+            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!EnsureGameNotRunning("install mods"))
+            return;
+
+        var dialog = new Views.NexusDownloadDialog
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+            InstalledMods = _allMods.ToList(),
+        };
+        if (dialog.ShowDialog() == true && dialog.DownloadedZips.Count > 0)
+        {
+            await InstallZipsAsync(dialog.DownloadedZips);
+            ProgressValue = 0;
+        }
+    }
+
+    [RelayCommand]
     private async Task InstallModAsync()
     {
         if (string.IsNullOrEmpty(GameFolderPath))

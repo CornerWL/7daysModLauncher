@@ -27,6 +27,8 @@
     <Compile Include="..\Services\AppLogger.cs" Link="Linked\AppLogger.cs" />
     <Compile Include="..\Services\UpdateCheckService.cs" Link="Linked\UpdateCheckService.cs" />
     <Compile Include="..\Services\ModService.cs" Link="Linked\ModService.cs" />
+    <Compile Include="..\Services\NexusApiService.cs" Link="Linked\NexusApiService.cs" />
+    <Compile Include="..\Services\NexusOAuthService.cs" Link="Linked\NexusOAuthService.cs" />
     <Compile Include="..\Models\ModItem.cs" Link="Linked\ModItem.cs" />
     <Compile Include="..\Models\Profile.cs" Link="Linked\Profile.cs" />
     <Compile Include="..\Models\AppSettings.cs" Link="Linked\AppSettings.cs" />
