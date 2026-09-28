@@ -21,6 +21,8 @@ public partial class NexusDownloadDialog : Window
 
     public List<string> DownloadedZips { get; } = new();
     public IReadOnlyList<ModItem> InstalledMods { get; set; } = Array.Empty<ModItem>();
+    /// <summary>Mod id из последнего поиска (для привязки установленных папок).</summary>
+    public int CurrentModId => _currentModId;
     /// <summary>Ссылка для автопоиска (приход из NXM без file id).</summary>
     public string? InitialModLink { get; set; }
 

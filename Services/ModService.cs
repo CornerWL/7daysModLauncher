@@ -31,6 +31,21 @@ public class ModService
             }
         }
 
+        // Привязка к Nexus id (для проверки обновлений)
+        try
+        {
+            var map = new NexusModMapService().Load();
+            foreach (var mod in mods)
+            {
+                if (map.TryGetValue(mod.FolderName, out var id))
+                    mod.NexusModId = id;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Nexus map apply failed: {ex.Message}");
+        }
+
         return mods.OrderBy(m => m.Name).ToList();
     }
 

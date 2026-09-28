@@ -27,7 +27,9 @@ A Windows desktop application built with .NET 8 (WPF) for managing mods for 7 Da
   NXM protocol (`nxm://` Mod Manager Download button) is registered on launch
   (HKCU only, other apps' registration is left alone); free downloads work via
   the key/expires tokens from the site click. Single-instance: repeat clicks
-  forward the link to the running window instead of opening a new one
+  forward the link to the running window instead of opening a new one.
+  Update checks (`↑ Check updates`) compare installed versions with Nexus for
+  mods installed via Nexus/NXM — metadata only, works on free accounts
 * Settings + profiles in `%LocalAppData%/7daysModLauncher` (auto-migration from exe folder)
 * File logging in `%LocalAppData%/7daysModLauncher/Logs/launcher.log` + global exception handler
 

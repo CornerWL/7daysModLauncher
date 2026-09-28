@@ -151,6 +151,9 @@
                         <Button Content="⟳ Refresh" Command="{Binding RefreshModsCommand}"
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
                                 IsEnabled="{Binding IsNotBusy}"/>
+                        <Button Content="↑ Check updates" Command="{Binding CheckUpdatesCommand}"
+                                Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
+                                IsEnabled="{Binding IsNotBusy}" ToolTip="Compare installed versions with Nexus"/>
                         <Button Content="Enable all" Command="{Binding EnableAllModsCommand}"
                                 Padding="12,6" Margin="0,0,8,0" Style="{DynamicResource GhostButtonStyle}"
                                 IsEnabled="{Binding IsNotBusy}"/>
@@ -257,11 +260,20 @@
                                                    TextTrimming="CharacterEllipsis" Margin="16,1,0,0"/>
                                     </StackPanel>
 
-                                    <Border Grid.Column="2" Background="#FF16233A" CornerRadius="6"
-                                            Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Version, TargetNullValue='—'}" FontSize="12"
-                                                   Foreground="{DynamicResource AccentHoverBrush}" FontWeight="SemiBold"/>
-                                    </Border>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
+                                        <Border Background="#FF16233A" CornerRadius="6"
+                                                Padding="8,4" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding Version, TargetNullValue='—'}" FontSize="12"
+                                                       Foreground="{DynamicResource AccentHoverBrush}" FontWeight="SemiBold"/>
+                                        </Border>
+                                        <Border Background="#FF1A2E1A" CornerRadius="6"
+                                                Padding="8,3" Margin="0,4,0,0" HorizontalAlignment="Left"
+                                                Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                ToolTip="Newer version on Nexus">
+                                            <TextBlock Text="↑ update" FontSize="11"
+                                                       Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold"/>
+                                        </Border>
+                                    </StackPanel>
 
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button Content="📂" Command="{Binding DataContext.OpenModFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -324,6 +336,10 @@
                                         </TextBlock>
                                     </Border>
                                 </WrapPanel>
+                                <TextBlock Text="{Binding SelectedMod.NexusVersion, StringFormat='↑ Nexus v{0} available!'}"
+                                           FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"
+                                           Foreground="{DynamicResource SuccessBrush}"
+                                           Visibility="{Binding SelectedMod.HasUpdate, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                 <TextBlock Text="DESCRIPTION" FontSize="10" FontWeight="Bold"
                                            Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
                                 <TextBlock Text="{Binding SelectedMod.Description, TargetNullValue='No description.'}"

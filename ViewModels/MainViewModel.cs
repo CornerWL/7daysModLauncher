@@ -210,7 +210,12 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = "Downloading from Nexus...";
             await svc.DownloadFileAsync(uris[0], dest, progress, CancellationToken.None);
             IsBusy = false;
+            var beforeNxm = _allMods.Select(m => m.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
             await InstallZipsAsync(new[] { dest });
+            var addedNxm = _allMods.Select(m => m.FolderName).Where(f => !beforeNxm.Contains(f)).ToList();
+            if (addedNxm.Count > 0)
+                new NexusModMapService().SetMany(addedNxm, nxm.ModId);
+            RefreshMods();
             ProgressValue = 0;
         }
         catch (Exception ex)
@@ -575,8 +580,14 @@ public partial class MainViewModel : ObservableObject
         };
         if (dialog.ShowDialog() == true && dialog.DownloadedZips.Count > 0)
         {
+            var before = _allMods.Select(m => m.FolderName).ToHashSet(StringComparer.OrdinalIgnoreCase);
             await InstallZipsAsync(dialog.DownloadedZips);
             ProgressValue = 0;
+            // Привязка новых папок к Nexus id (для проверки обновлений)
+            var added = _allMods.Select(m => m.FolderName).Where(f => !before.Contains(f)).ToList();
+            if (added.Count > 0 && dialog.CurrentModId != 0)
+                new NexusModMapService().SetMany(added, dialog.CurrentModId);
+            RefreshMods();
         }
     }
 
@@ -685,6 +696,7 @@ public partial class MainViewModel : ObservableObject
         {
             var backup = _modService.DeleteModWithBackup(mod, GameFolderPath);
             _allMods.Remove(mod);
+            new NexusModMapService().Remove(mod.FolderName);
             ApplyFilter();
             AutoSaveProfile();
             StatusMessage = backup != null
@@ -810,6 +822,74 @@ public partial class MainViewModel : ObservableObject
         SortAscending = !SortAscending;
     }
 
+    /// <summary>
+    /// Сверка версий с Nexus для модов с известной привязкой (ставились через Nexus/NXM).
+    /// Работает и на бесплатном ключе — только метаданные, без прямых ссылок.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckUpdatesAsync()
+    {
+        var withId = _allMods.Where(m => m.NexusModId != null).ToList();
+        if (withId.Count == 0)
+        {
+            MessageBox.Show("No mods linked to Nexus yet.\nInstall via the ⬇ Nexus button or an nxm:// link first.",
+                "No linked mods", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var cred = LoadNexusCredential();
+        if (cred.IsEmpty)
+        {
+            MessageBox.Show("Log in via the ⬇ Nexus button first (OAuth or API key).",
+                "Not logged in", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var svc = new NexusApiService();
+            int updated = 0, failed = 0, done = 0;
+            foreach (var mod in withId)
+            {
+                StatusMessage = $"Checking updates ({done + 1}/{withId.Count}): {mod.Name}...";
+                try
+                {
+                    var (info, error) = await svc.GetModAsync(cred, mod.NexusModId!.Value);
+                    if (info != null)
+                    {
+                        mod.NexusVersion = info.Version;
+                        mod.HasUpdate = UpdateCheckService.CompareVersions(info.Version, mod.Version ?? "") > 0;
+                        if (mod.HasUpdate)
+                            updated++;
+                    }
+                    else
+                    {
+                        AppLogger.Warn($"Update check '{mod.FolderName}': {error}");
+                        failed++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"Update check '{mod.FolderName}' failed: {ex.Message}");
+                    failed++;
+                }
+                done++;
+                ProgressValue = (double)done / withId.Count;
+                await Task.Delay(250);
+            }
+            ApplyFilter();
+            StatusMessage = updated > 0
+                ? $"Updates available: {updated}."
+                : failed > 0 ? $"All up to date ({failed} failed to check)." : "All mods up to date.";
+        }
+        finally
+        {
+            IsBusy = false;
+            ProgressValue = 0;
+        }
+    }
+
     /// <summary>Сброс выделения (клик по пустому месту списка).</summary>
     [RelayCommand]
     private void ClearSelection()
@@ -890,6 +970,7 @@ public partial class MainViewModel : ObservableObject
             {
                 _modService.DeleteModWithBackup(mod, GameFolderPath);
                 _allMods.Remove(mod);
+                new NexusModMapService().Remove(mod.FolderName);
             }
             SelectedMod = null;
             ApplyFilter();
