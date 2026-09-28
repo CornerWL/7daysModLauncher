@@ -70,24 +70,66 @@ public sealed class NexusApiService
         if (string.IsNullOrWhiteSpace(input))
             return null;
         var m = Regex.Match(input.Trim(), @"nexusmods\.com/(?<domain>[a-z0-9_]+)/mods/\d+", RegexOptions.IgnoreCase);
+        if (m.Success)
+            return m.Groups["domain"].Value.ToLowerInvariant();
+        // nxm://domain/mods/...
+        m = Regex.Match(input.Trim(), @"^nxm://(?<domain>[^/]+)/mods/\d+", RegexOptions.IgnoreCase);
         return m.Success ? m.Groups["domain"].Value.ToLowerInvariant() : null;
+    }
+
+    /// <summary>
+    /// Разбор NXM-ссылки вида nxm://domain/mods/10784/files/123?key=XXX&expires=YYY.
+    /// key/expires — токены клика, по ним бесплатным юзерам тоже отдают ссылку.
+    /// </summary>
+    public record NxmLink(string Domain, int ModId, int? FileId, string? Key, string? Expires);
+
+    public static NxmLink? ParseNxmLink(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input) || !input.TrimStart().StartsWith("nxm://", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var m = Regex.Match(input.Trim(),
+            @"^nxm://(?<domain>[^/]+)/mods/(?<mod>\d+)(/files/(?<file>\d+))?",
+            RegexOptions.IgnoreCase);
+        if (!m.Success || !int.TryParse(m.Groups["mod"].Value, out var modId))
+            return null;
+
+        int? fileId = int.TryParse(m.Groups["file"].Value, out var f) ? f : null;
+
+        string? key = null, expires = null;
+        var q = input.IndexOf('?');
+        if (q >= 0)
+        {
+            foreach (var pair in input[(q + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var kv = pair.Split('=', 2);
+                if (kv.Length != 2)
+                    continue;
+                var name = Uri.UnescapeDataString(kv[0]).Trim().ToLowerInvariant();
+                var val = Uri.UnescapeDataString(kv[1]).Trim();
+                if (name == "key") key = val;
+                else if (name == "expires") expires = val;
+            }
+        }
+
+        return new NxmLink(m.Groups["domain"].Value.ToLowerInvariant(), modId, fileId, key, expires);
     }
 
     public async Task<(bool Ok, string Message, NexusUser? User)> ValidateAsync(NexusCredential cred, CancellationToken token = default)
     {
         if (cred.IsEmpty)
-            return (false, "Войдите через Nexus или вставьте API-ключ.", null);
+            return (false, "Log in via Nexus or paste an API key.", null);
 
         try
         {
             using var client = CreateClient(cred);
             using var res = await client.GetAsync($"{ApiBase}/v1/users/validate.json", token);
             if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
-                return (false, "Учетные данные не подошли (401/403).", null);
+                return (false, "Credentials rejected (401/403).", null);
             if (res.StatusCode == (HttpStatusCode)429)
-                return (false, "Лимит API исчерпан (429). Подождите немного.", null);
+                return (false, "API rate limit hit (429). Wait a bit.", null);
             if (!res.IsSuccessStatusCode)
-                return (false, $"Nexus вернул {(int)res.StatusCode}. Попробуйте позже.", null);
+                return (false, $"Nexus returned {(int)res.StatusCode}. Try again later.", null);
 
             await using var stream = await res.Content.ReadAsStreamAsync(token);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: token);
@@ -95,16 +137,16 @@ public sealed class NexusApiService
             var name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "?" : "?";
             var premium = root.TryGetProperty("is_premium", out var p) && p.ValueKind == JsonValueKind.True;
             var supporter = root.TryGetProperty("is_supporter", out var s) && s.ValueKind == JsonValueKind.True;
-            return (true, premium ? $"Вход: {name} (Premium)" : $"Вход: {name}", new NexusUser(name, premium, supporter));
+            return (true, premium ? $"Logged in: {name} (Premium)" : $"Logged in: {name}", new NexusUser(name, premium, supporter));
         }
         catch (OperationCanceledException)
         {
-            return (false, "Таймаут. Проверьте интернет.", null);
+            return (false, "Timeout. Check your connection.", null);
         }
         catch (Exception ex)
         {
             AppLogger.Warn($"Nexus validate failed: {ex.Message}");
-            return (false, $"Ошибка сети: {ex.Message}", null);
+            return (false, $"Network error: {ex.Message}", null);
         }
     }
 
@@ -115,11 +157,11 @@ public sealed class NexusApiService
             using var client = CreateClient(cred);
             using var res = await client.GetAsync($"{ApiBase}/v1/games/{GameDomain}/mods/{modId}.json", token);
             if (res.StatusCode == HttpStatusCode.NotFound)
-                return (null, "Мод не найден.");
+                return (null, "Mod not found.");
             if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
-                return (null, $"Nexus отказал ({(int)res.StatusCode}). Проверьте вход.");
+                return (null, $"Nexus denied ({(int)res.StatusCode}). Check your login.");
             if (res.StatusCode == (HttpStatusCode)429)
-                return (null, "Лимит API исчерпан (429). Подождите немного.");
+                return (null, "API rate limit hit (429). Wait a bit.");
             res.EnsureSuccessStatusCode();
 
             await using var stream = await res.Content.ReadAsStreamAsync(token);
@@ -133,7 +175,7 @@ public sealed class NexusApiService
         catch (Exception ex)
         {
             AppLogger.Warn($"Nexus GetMod failed: {ex.Message}");
-            return (null, $"Ошибка: {ex.Message}");
+            return (null, $"Error: {ex.Message}");
         }
     }
 
@@ -144,11 +186,11 @@ public sealed class NexusApiService
             using var client = CreateClient(cred);
             using var res = await client.GetAsync($"{ApiBase}/v1/games/{GameDomain}/mods/{modId}/files.json", token);
             if (res.StatusCode == HttpStatusCode.NotFound)
-                return (new(), "Файлы не найдены.");
+                return (new(), "Files not found.");
             if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
-                return (new(), $"Nexus отказал ({(int)res.StatusCode}). Проверьте вход.");
+                return (new(), $"Nexus denied ({(int)res.StatusCode}). Check your login.");
             if (res.StatusCode == (HttpStatusCode)429)
-                return (new(), "Лимит API исчерпан (429). Подождите немного.");
+                return (new(), "API rate limit hit (429). Wait a bit.");
             res.EnsureSuccessStatusCode();
 
             await using var stream = await res.Content.ReadAsStreamAsync(token);
@@ -179,36 +221,51 @@ public sealed class NexusApiService
         catch (Exception ex)
         {
             AppLogger.Warn($"Nexus GetFiles failed: {ex.Message}");
-            return (new(), $"Ошибка: {ex.Message}");
+            return (new(), $"Error: {ex.Message}");
         }
     }
 
-    public async Task<(List<string> Uris, string? Error)> GetDownloadLinksAsync(NexusCredential cred, int modId, int fileId, CancellationToken token = default)
+    public Task<(List<string> Uris, string? Error)> GetDownloadLinksAsync(NexusCredential cred, int modId, int fileId, CancellationToken token = default)
+        => GetDownloadLinksAsync(cred, modId, fileId, null, null, token);
+
+    /// <summary>
+    /// nxmKey/nxmExpires — токены из NXM-ссылки (клик Mod Manager Download на сайте).
+    /// С ними ссылку отдают и бесплатным аккаунтам.
+    /// </summary>
+    public async Task<(List<string> Uris, string? Error)> GetDownloadLinksAsync(
+        NexusCredential cred, int modId, int fileId, string? nxmKey, string? nxmExpires, CancellationToken token = default)
     {
         try
         {
+            var url = $"{ApiBase}/v1/games/{GameDomain}/mods/{modId}/files/{fileId}/download_link.json";
+            if (!string.IsNullOrWhiteSpace(nxmKey) && !string.IsNullOrWhiteSpace(nxmExpires))
+                url += $"?key={Uri.EscapeDataString(nxmKey)}&expires={Uri.EscapeDataString(nxmExpires)}";
+
             using var client = CreateClient(cred);
-            using var res = await client.GetAsync($"{ApiBase}/v1/games/{GameDomain}/mods/{modId}/files/{fileId}/download_link.json", token);
+            using var res = await client.GetAsync(url, token);
             if (res.StatusCode == HttpStatusCode.Unauthorized || res.StatusCode == HttpStatusCode.Forbidden)
             {
                 var body = await SafeReadBody(res);
                 AppLogger.Warn($"Nexus download_link {(int)res.StatusCode}: {body}");
-                return (new(), "API-скачивание — только для Premium. Скачайте ZIP вручную со страницы мода и перетащите в лаунчер.");
+                bool viaNxm = !string.IsNullOrWhiteSpace(nxmKey);
+                return (new(), viaNxm
+                    ? "Nexus refused the link. Click Mod Manager Download on the site again (tokens expire) or download manually."
+                    : "API download is Premium-only. Either click Mod Manager Download on the site (NXM links work free too) or download the ZIP manually.");
             }
             if (res.StatusCode == HttpStatusCode.NotFound)
-                return (new(), "Файл не найден (404).");
+                return (new(), "File not found (404).");
             if (res.StatusCode == (HttpStatusCode)429)
             {
                 var retry = res.Headers.RetryAfter?.Delta?.TotalSeconds;
                 return (new(), retry.HasValue
-                    ? $"Лимит API исчерпан (429). Повторите через {retry.Value:F0} сек."
-                    : "Лимит API исчерпан (429). Подождите немного.");
+                    ? $"API rate limit hit (429). Retry in {retry.Value:F0} sec."
+                    : "API rate limit hit (429). Wait a bit.");
             }
             if (!res.IsSuccessStatusCode)
             {
                 var body = await SafeReadBody(res);
                 AppLogger.Warn($"Nexus download_link {(int)res.StatusCode}: {body}");
-                return (new(), $"Nexus вернул {(int)res.StatusCode}. Подробности — в логе.");
+                return (new(), $"Nexus returned {(int)res.StatusCode}. See the log for details.");
             }
 
             await using var stream = await res.Content.ReadAsStreamAsync(token);
@@ -224,7 +281,7 @@ public sealed class NexusApiService
             }
             if (uris.Count == 0)
                 AppLogger.Warn($"Nexus download_link: пустой список (mod={modId}, file={fileId})");
-            return uris.Count == 0 ? (new(), "Сервер не дал ссылку на скачивание.") : (uris, null);
+            return uris.Count == 0 ? (new(), "Server gave no download link.") : (uris, null);
         }
         catch (OperationCanceledException)
         {
@@ -233,7 +290,7 @@ public sealed class NexusApiService
         catch (Exception ex)
         {
             AppLogger.Warn($"Nexus GetDownloadLinks failed: {ex.Message}");
-            return (new(), $"Ошибка: {ex.Message}");
+            return (new(), $"Error: {ex.Message}");
         }
     }
 

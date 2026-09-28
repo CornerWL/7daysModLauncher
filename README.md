@@ -23,7 +23,11 @@ A Windows desktop application built with .NET 8 (WPF) for managing mods for 7 Da
 * Nexus Mods flows: OAuth PKCE login (system browser + localhost callback,
   endpoints/client id issued by Nexus Support) with personal API key fallback;
   mod lookup by URL/ID, file listing, one-click download & install (Premium),
-  installed-vs-Nexus version compare. Free accounts: manual ZIP + drag & drop
+  installed-vs-Nexus version compare. Free accounts: manual ZIP + drag & drop.
+  NXM protocol (`nxm://` Mod Manager Download button) is registered on launch
+  (HKCU only, other apps' registration is left alone); free downloads work via
+  the key/expires tokens from the site click. Single-instance: repeat clicks
+  forward the link to the running window instead of opening a new one
 * Settings + profiles in `%LocalAppData%/7daysModLauncher` (auto-migration from exe folder)
 * File logging in `%LocalAppData%/7daysModLauncher/Logs/launcher.log` + global exception handler
 

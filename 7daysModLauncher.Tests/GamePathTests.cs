@@ -245,3 +245,50 @@ public class NexusOAuthTests
         Assert.Contains("state=state1", url);
     }
 }
+
+public class NxmLinkTests
+{
+    [Fact]
+    public void ParseNxmLink_Full()
+    {
+        var link = NexusApiService.ParseNxmLink("nxm://7daystodie/mods/10784/files/5?key=ABC123&expires=999");
+        Assert.NotNull(link);
+        Assert.Equal("7daystodie", link.Domain);
+        Assert.Equal(10784, link.ModId);
+        Assert.Equal(5, link.FileId);
+        Assert.Equal("ABC123", link.Key);
+        Assert.Equal("999", link.Expires);
+    }
+
+    [Fact]
+    public void ParseNxmLink_NoFile()
+    {
+        var link = NexusApiService.ParseNxmLink("nxm://7daystodie/mods/10784");
+        Assert.NotNull(link);
+        Assert.Equal(10784, link.ModId);
+        Assert.Null(link.FileId);
+    }
+
+    [Theory]
+    [InlineData("https://www.nexusmods.com/7daystodie/mods/10784", null)]
+    [InlineData("", null)]
+    [InlineData("nxm://bogus", null)]
+    public void ParseNxmLink_Invalid(string input, object? _)
+    {
+        Assert.Null(NexusApiService.ParseNxmLink(input));
+    }
+
+    [Fact]
+    public void FindNxmArg_PicksNxm()
+    {
+        var args = new[] { "C:\\app\\app.exe", "\"nxm://7daystodie/mods/1/files/2?key=k\"" };
+        Assert.Equal("nxm://7daystodie/mods/1/files/2?key=k", NexusProtocolService.FindNxmArg(args));
+    }
+
+    [Fact]
+    public void FindNxmArg_None()
+    {
+        Assert.Null(NexusProtocolService.FindNxmArg(new[] { "app.exe" }));
+        Assert.Null(NexusProtocolService.FindNxmArg(Array.Empty<string>()));
+    }
+}

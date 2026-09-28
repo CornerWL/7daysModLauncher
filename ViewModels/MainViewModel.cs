@@ -110,6 +110,119 @@ public partial class MainViewModel : ObservableObject
         RefreshProfiles();
         RestoreSelectedProfile();
         _ = CheckForUpdatesAsync();
+        ProcessPendingNxmLink();
+    }
+
+    private void ProcessPendingNxmLink()
+    {
+        try
+        {
+            var link = SevenDaysModLauncher.App.ConsumePendingNxmLink();
+            if (!string.IsNullOrWhiteSpace(link))
+                _ = HandleNxmLinkAsync(link);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Warn($"Pending nxm failed: {ex.Message}");
+        }
+    }
+
+    private NexusApiService.NexusCredential LoadNexusCredential()
+    {
+        try
+        {
+            var s = _settingsService.Load();
+            string? bearer = null;
+            if (!string.IsNullOrWhiteSpace(s.NexusOAuth))
+            {
+                try
+                {
+                    var tokens = System.Text.Json.JsonSerializer.Deserialize<NexusOAuthService.OAuthTokens>(s.NexusOAuth);
+                    if (tokens != null && !tokens.IsExpired)
+                        bearer = tokens.AccessToken;
+                }
+                catch { }
+            }
+            return new NexusApiService.NexusCredential(s.NexusApiKey, bearer);
+        }
+        catch
+        {
+            return new NexusApiService.NexusCredential(null, null);
+        }
+    }
+
+    /// <summary>Прием NXM-ссылки (Mod Manager Download): проверка игры → ссылка → установка.</summary>
+    public async Task HandleNxmLinkAsync(string url)
+    {
+        var nxm = NexusApiService.ParseNxmLink(url);
+        if (nxm == null)
+            return;
+
+        if (!nxm.Domain.Equals(NexusApiService.GameDomain, StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show($"This mod is for another game ({nxm.Domain}).\nThis launcher manages 7 Days to Die.",
+                "Wrong game", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
+        {
+            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!EnsureGameNotRunning("install mods"))
+            return;
+
+        // Без file id — открываем диалог с подставленной ссылкой
+        if (nxm.FileId == null)
+        {
+            var dialog = new Views.NexusDownloadDialog
+            {
+                Owner = System.Windows.Application.Current.MainWindow,
+                InstalledMods = _allMods.ToList(),
+                InitialModLink = url,
+            };
+            if (dialog.ShowDialog() == true && dialog.DownloadedZips.Count > 0)
+            {
+                await InstallZipsAsync(dialog.DownloadedZips);
+                ProgressValue = 0;
+            }
+            return;
+        }
+
+        var svc = new NexusApiService();
+        var cred = LoadNexusCredential();
+        IsBusy = true;
+        ProgressValue = 0;
+        StatusMessage = $"Resolving Nexus link (mod {nxm.ModId})...";
+        try
+        {
+            var (uris, linkError) = await svc.GetDownloadLinksAsync(cred, nxm.ModId, nxm.FileId.Value, nxm.Key, nxm.Expires);
+            if (linkError != null || uris.Count == 0)
+            {
+                MessageBox.Show(linkError ?? "No download link.", "Nexus", MessageBoxButton.OK, MessageBoxImage.Warning);
+                StatusMessage = "NXM download failed.";
+                return;
+            }
+
+            var dest = Path.Combine(Path.GetTempPath(), $"nxm_{nxm.ModId}_{nxm.FileId.Value}.zip");
+            var progress = new Progress<double>(v => ProgressValue = v);
+            StatusMessage = "Downloading from Nexus...";
+            await svc.DownloadFileAsync(uris[0], dest, progress, CancellationToken.None);
+            IsBusy = false;
+            await InstallZipsAsync(new[] { dest });
+            ProgressValue = 0;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("NXM handle failed", ex);
+            MessageBox.Show($"NXM download failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = "NXM download failed.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     /// <summary>Возвращает последний выбранный профиль и применяет его (состояния модов).</summary>

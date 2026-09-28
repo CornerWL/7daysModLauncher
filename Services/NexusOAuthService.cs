@@ -57,7 +57,7 @@ public sealed class NexusOAuthService
     public static string BuildAuthorizeUrl(OAuthConfig cfg, string redirectUri, string state, string challenge)
     {
         if (string.IsNullOrWhiteSpace(cfg.ClientId))
-            throw new InvalidOperationException("OAuth не настроен: нет ClientId от Nexus Support.");
+            throw new InvalidOperationException("OAuth is not configured: no ClientId from Nexus Support.");
 
         var sb = new StringBuilder(cfg.AuthorizeEndpoint);
         sb.Append(cfg.AuthorizeEndpoint.Contains('?') ? '&' : '?');
@@ -111,20 +111,20 @@ public sealed class NexusOAuthService
             string? error = context.Request.QueryString["error"];
 
             // Сразу отвечаем браузеру, чтобы не висел
-            const string okHtml = "<html><body style='background:#0B0E14;color:#E8EDF7;font-family:sans-serif'><h3>OK — вернитесь в 7daysModLauncher</h3></body></html>";
+            const string okHtml = "<html><body style='background:#0B0E14;color:#E8EDF7;font-family:sans-serif'><h3>Done — return to 7daysModLauncher</h3></body></html>";
             byte[] bytes = Encoding.UTF8.GetBytes(error != null
-                ? okHtml.Replace("OK — вернитесь в 7daysModLauncher", "Ошибка: " + error)
+                ? okHtml.Replace("Done — return to 7daysModLauncher", "Error: " + error)
                 : okHtml);
             context.Response.ContentType = "text/html; charset=utf-8";
             await context.Response.OutputStream.WriteAsync(bytes, token);
             context.Response.Close();
 
             if (!string.IsNullOrEmpty(error))
-                throw new InvalidOperationException($"OAuth отклонен сайтом: {error}");
+                throw new InvalidOperationException($"OAuth rejected by the site: {error}");
             if (string.IsNullOrEmpty(code))
-                throw new InvalidOperationException("OAuth: сайт не вернул код.");
+                throw new InvalidOperationException("OAuth: the site returned no code.");
             if (!string.Equals(returnedState, state, StringComparison.Ordinal))
-                throw new InvalidOperationException("OAuth: state не совпал (возможна подмена).");
+                throw new InvalidOperationException("OAuth: state mismatch (possible tampering).");
 
             return await ExchangeCodeAsync(cfg, code, redirectUri, verifier, token);
         }
@@ -150,7 +150,7 @@ public sealed class NexusOAuthService
         if (!res.IsSuccessStatusCode)
         {
             AppLogger.Warn($"OAuth token exchange {(int)res.StatusCode}: {body[..Math.Min(300, body.Length)]}");
-            throw new InvalidOperationException($"Обмен кода на токен не удался ({(int)res.StatusCode}).");
+            throw new InvalidOperationException($"Token exchange failed ({(int)res.StatusCode}).");
         }
         return ParseTokens(body);
     }
@@ -190,7 +190,7 @@ public sealed class NexusOAuthService
                     return v.GetString();
             return null;
         }
-        var access = Get("access_token", "accessToken") ?? throw new InvalidOperationException("В ответе нет access_token.");
+        var access = Get("access_token", "accessToken") ?? throw new InvalidOperationException("No access_token in the response.");
         var refresh = Get("refresh_token", "refreshToken");
         var type = Get("token_type", "tokenType") ?? "Bearer";
         double expiresIn = 3600;

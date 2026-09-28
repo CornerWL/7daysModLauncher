@@ -24,9 +24,9 @@
                 <Button x:Name="OAuthButton" Content="Login with Nexus"
                         Padding="16,0" MinHeight="36" Margin="0,0,8,4"
                         Style="{DynamicResource AccentButtonStyle}" Click="OAuthButton_Click"
-                        ToolTip="OAuth PKCE через браузер (нужен appid от Nexus Support)"/>
+                        ToolTip="OAuth PKCE via browser (needs appid from Nexus Support)"/>
                 <TextBox x:Name="ApiKeyBox" MinWidth="180" Width="220" Margin="0,0,8,4"
-                         ToolTip="Личный API-ключ: My Account → API Access (фолбэк без OAuth)"/>
+                         ToolTip="Personal API key: My Account → API Access (fallback without OAuth)"/>
                 <Button x:Name="ValidateButton" Content="Use key"
                         Padding="16,0" MinHeight="36" Margin="0,0,0,4"
                         Style="{DynamicResource GhostButtonStyle}" Click="ValidateButton_Click"/>
@@ -45,7 +45,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="ModLinkBox" Grid.Column="0" Margin="0,0,8,0"
-                         ToolTip="https://www.nexusmods.com/7daystodie/mods/10784 или просто 10784"/>
+                         ToolTip="https://www.nexusmods.com/7daystodie/mods/10784 or just 10784"/>
                 <Button x:Name="FindButton" Grid.Column="1" Content="Find"
                         Padding="16,0" MinHeight="36"
                         Style="{DynamicResource AccentButtonStyle}" Click="FindButton_Click"/>
@@ -98,9 +98,9 @@
 
         <!-- Buttons -->
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button x:Name="OpenSiteButton" Content="🌐 На сайте"
+            <Button x:Name="OpenSiteButton" Content="🌐 Website"
                     Padding="18,8" Style="{DynamicResource GhostButtonStyle}"
-                    ToolTip="Открыть страницу файлов в браузере (ручное скачивание без Premium)"
+                    ToolTip="Open the mod files page in a browser (manual download without Premium)"
                     Click="OpenSiteButton_Click"/>
             <Button x:Name="DownloadButton" Content="⬇ Download &amp; Install"
                     Padding="18,8" Margin="8,0,0,0" Style="{DynamicResource AccentButtonStyle}"

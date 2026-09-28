@@ -21,6 +21,8 @@ public partial class NexusDownloadDialog : Window
 
     public List<string> DownloadedZips { get; } = new();
     public IReadOnlyList<ModItem> InstalledMods { get; set; } = Array.Empty<ModItem>();
+    /// <summary>Ссылка для автопоиска (приход из NXM без file id).</summary>
+    public string? InitialModLink { get; set; }
 
     private NexusApiService.NexusCredential _cred = new(null, null);
     private int _currentModId;
@@ -29,7 +31,15 @@ public partial class NexusDownloadDialog : Window
     public NexusDownloadDialog()
     {
         InitializeComponent();
-        Loaded += (_, _) => RestoreAuth();
+        Loaded += (_, _) =>
+        {
+            RestoreAuth();
+            if (!string.IsNullOrWhiteSpace(InitialModLink))
+            {
+                ModLinkBox.Text = InitialModLink;
+                FindButton_Click(this, new RoutedEventArgs());
+            }
+        };
     }
 
     // ---------- Auth ----------
@@ -46,7 +56,7 @@ public partial class NexusDownloadDialog : Window
             if (tokens != null && !tokens.IsExpired)
             {
                 _cred = new NexusApiService.NexusCredential(null, tokens.AccessToken);
-                AuthStatusText.Text = "OAuth: вход выполнен.";
+                AuthStatusText.Text = "OAuth: logged in.";
                 _ = ValidateAsync();
                 return;
             }
@@ -100,7 +110,7 @@ public partial class NexusDownloadDialog : Window
     private async void ValidateButton_Click(object sender, RoutedEventArgs e)
     {
         _cred = new NexusApiService.NexusCredential(ApiKeyBox.Text.Trim(), null);
-        AuthStatusText.Text = "Проверка...";
+        AuthStatusText.Text = "Checking...";
         await ValidateAsync();
         var (ok, _, _) = await _api.ValidateAsync(_cred);
         if (ok)
@@ -112,7 +122,7 @@ public partial class NexusDownloadDialog : Window
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
-        SetBusy(true, "Ожидание входа в браузере...");
+        SetBusy(true, "Waiting for browser login...");
         try
         {
             var cfg = NexusOAuthService.OAuthConfig.Defaults;
@@ -125,17 +135,17 @@ public partial class NexusDownloadDialog : Window
         {
             // Нет ClientId — честно показываем, ждем данные от Nexus Support
             AuthStatusText.Text = ex.Message;
-            MessageBox.Show($"{ex.Message}\n\nФолбэк: вставьте личный API-ключ (My Account → API Access).",
-                "OAuth не настроен", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"{ex.Message}\n\nFallback: paste a personal API key (My Account → API Access).",
+                "OAuth not configured", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (OperationCanceledException)
         {
-            AuthStatusText.Text = "Вход отменен.";
+            AuthStatusText.Text = "Login cancelled.";
         }
         catch (Exception ex)
         {
             AppLogger.Error("OAuth login failed", ex);
-            AuthStatusText.Text = $"Ошибка входа: {ex.Message}";
+            AuthStatusText.Text = $"Login failed: {ex.Message}";
         }
         finally
         {
@@ -163,36 +173,36 @@ public partial class NexusDownloadDialog : Window
     {
         if (_cred.IsEmpty)
         {
-            AuthStatusText.Text = "Сначала войдите через Nexus или вставьте API-ключ.";
+            AuthStatusText.Text = "Log in via Nexus or paste an API key first.";
             return;
         }
 
         var modId = NexusApiService.ParseModId(ModLinkBox.Text);
         if (modId == null)
         {
-            MessageBox.Show("Не понял ссылку. Вставьте ссылку вида\nhttps://www.nexusmods.com/7daystodie/mods/10784\nили просто id мода.",
-                "Ссылка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Link not understood. Paste a link like\nhttps://www.nexusmods.com/7daystodie/mods/10784\nor just the mod id.",
+                "Link", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var domain = NexusApiService.ParseGameDomain(ModLinkBox.Text);
         if (domain != null && domain != NexusApiService.GameDomain)
         {
-            MessageBox.Show($"Это мод для другой игры ({domain}). Лаунчер работает с 7 Days to Die.",
-                "Другая игра", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"This mod is for another game ({domain}). This launcher manages 7 Days to Die.",
+                "Wrong game", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
-        SetBusy(true, "Запрос к Nexus...");
+        SetBusy(true, "Querying Nexus...");
         try
         {
             var (mod, modError) = await _api.GetModAsync(_cred, modId.Value, token);
             if (mod == null)
             {
-                DownloadStatusText.Text = modError ?? "Ошибка.";
+                DownloadStatusText.Text = modError ?? "Error.";
                 return;
             }
 
@@ -202,7 +212,7 @@ public partial class NexusDownloadDialog : Window
             ModAuthorText.Text = string.IsNullOrWhiteSpace(mod.Author) ? "" : $"by {mod.Author} • v{mod.Version}";
             ShowInstalledMatch(mod);
 
-            DownloadStatusText.Text = "Загрузка списка файлов...";
+            DownloadStatusText.Text = "Loading file list...";
             var (files, filesError) = await _api.GetFilesAsync(_cred, modId.Value, token);
             if (filesError != null)
             {
@@ -213,16 +223,16 @@ public partial class NexusDownloadDialog : Window
             FilesList.ItemsSource = files.Select(f => new FileRow(f)).ToList();
             if (FilesList.Items.Count > 0)
                 FilesList.SelectedIndex = 0;
-            DownloadStatusText.Text = files.Count == 0 ? "У мода нет файлов." : $"Файлов: {files.Count}. Выберите и жмите Download.";
+            DownloadStatusText.Text = files.Count == 0 ? "This mod has no files." : $"Files: {files.Count}. Select one and hit Download.";
         }
         catch (OperationCanceledException)
         {
-            DownloadStatusText.Text = "Отменено.";
+            DownloadStatusText.Text = "Cancelled.";
         }
         catch (Exception ex)
         {
             AppLogger.Error("Nexus find failed", ex);
-            DownloadStatusText.Text = $"Ошибка: {ex.Message}";
+            DownloadStatusText.Text = $"Error: {ex.Message}";
         }
         finally
         {
@@ -244,14 +254,14 @@ public partial class NexusDownloadDialog : Window
 
             if (match == null)
             {
-                MatchText.Text = "Не установлен. Можно качать.";
+                MatchText.Text = "Not installed. Good to download.";
                 return;
             }
 
             int cmp = UpdateCheckService.CompareVersions(mod.Version, match.Version ?? "");
             MatchText.Text = cmp > 0
-                ? $"Установлен {match.FolderName} v{match.Version ?? "?"} — на Nexus новее (v{mod.Version}). Есть обновление!"
-                : $"Установлен {match.FolderName} v{match.Version ?? "?"} — актуально.";
+                ? $"Installed {match.FolderName} v{match.Version ?? "?"} — Nexus has newer (v{mod.Version}). Update available!"
+                : $"Installed {match.FolderName} v{match.Version ?? "?"} — up to date.";
         }
         catch (Exception ex)
         {
@@ -264,7 +274,7 @@ public partial class NexusDownloadDialog : Window
     {
         if (FilesList.SelectedItem is not FileRow row)
         {
-            MessageBox.Show("Выберите файл из списка.", "Файл", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Select a file from the list.", "File", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
         if (_cred.IsEmpty || _currentModId == 0)
@@ -273,20 +283,20 @@ public partial class NexusDownloadDialog : Window
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
-        SetBusy(true, "Получение ссылки...");
+        SetBusy(true, "Resolving link...");
         try
         {
             var progress = new Progress<double>(v => DownloadProgress.Value = v);
             var (uris, linkError) = await _api.GetDownloadLinksAsync(_cred, _currentModId, row.File.FileId, token);
             if (linkError != null || uris.Count == 0)
             {
-                DownloadStatusText.Text = linkError ?? "Нет ссылки.";
+                DownloadStatusText.Text = linkError ?? "No link.";
                 return;
             }
 
             var safeName = string.Join("_", (string.IsNullOrWhiteSpace(row.File.FileName) ? $"nexus_{row.File.FileId}.zip" : row.File.FileName).Split(Path.GetInvalidFileNameChars()));
             var dest = Path.Combine(Path.GetTempPath(), $"nexus_{_currentModId}_{row.File.FileId}_{safeName}");
-            DownloadStatusText.Text = $"Качаю {safeName}...";
+            DownloadStatusText.Text = $"Downloading {safeName}...";
             await _api.DownloadFileAsync(uris[0], dest, progress, token);
 
             DownloadedZips.Add(dest);
@@ -295,13 +305,13 @@ public partial class NexusDownloadDialog : Window
         }
         catch (OperationCanceledException)
         {
-            DownloadStatusText.Text = "Отменено.";
+            DownloadStatusText.Text = "Cancelled.";
         }
         catch (Exception ex)
         {
             AppLogger.Error("Nexus download failed", ex);
-            MessageBox.Show($"Ошибка скачивания:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            DownloadStatusText.Text = "Ошибка скачивания.";
+            MessageBox.Show($"Download failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            DownloadStatusText.Text = "Download failed.";
         }
         finally
         {
