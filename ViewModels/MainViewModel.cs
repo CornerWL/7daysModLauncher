@@ -19,6 +19,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ModService _modService;
     private readonly ProfileService _profileService;
     private readonly IGameLauncherService _launcherService;
+    private readonly BackupService _backupService = new();
     private List<ModItem> _allMods = new();
 
     [ObservableProperty]
@@ -42,6 +43,40 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private ModItem? _selectedMod;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowModDetails))]
+    [NotifyPropertyChangedFor(nameof(ShowBackupDetails))]
+    [NotifyPropertyChangedFor(nameof(BackupsButtonText))]
+    private bool _showBackups;
+
+    [ObservableProperty]
+    private ObservableCollection<BackupItem> _backups = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBackupDetails))]
+    private BackupItem? _selectedBackup;
+
+    private int _backupCount;
+
+    public int BackupCount
+    {
+        get => _backupCount;
+        private set
+        {
+            if (SetProperty(ref _backupCount, value))
+                OnPropertyChanged(nameof(BackupsButtonText));
+        }
+    }
+
+    public string BackupsButtonText => ShowBackups ? "Mods" : $"Backups ({BackupCount})";
+
+    public bool ShowModDetails => !ShowBackups && SelectedMod != null;
+
+    public bool ShowBackupDetails => ShowBackups && SelectedBackup != null;
+
+    partial void OnSelectedModChanged(ModItem? value) => OnPropertyChanged(nameof(ShowModDetails));
+    partial void OnSelectedBackupChanged(BackupItem? value) => OnPropertyChanged(nameof(ShowBackupDetails));
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -278,7 +313,12 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value)
+    {
+        ApplyFilter();
+        if (ShowBackups)
+            RefreshBackups();
+    }
     partial void OnSortByChanged(string value) => ApplyFilter();
     partial void OnStatusFilterChanged(string value) => ApplyFilter();
 
@@ -509,6 +549,7 @@ public partial class MainViewModel : ObservableObject
             SelectedMod = null;
             OnPropertyChanged(nameof(EnabledCount));
             OnPropertyChanged(nameof(TotalCount));
+            UpdateBackupCount();
             return;
         }
 
@@ -519,6 +560,20 @@ public partial class MainViewModel : ObservableObject
             ? null
             : _allMods.FirstOrDefault(m => m.FolderName.Equals(focusedKey, StringComparison.OrdinalIgnoreCase));
         ApplyFilter();
+        UpdateBackupCount();
+    }
+
+    private void UpdateBackupCount()
+    {
+        try
+        {
+            var dir = Path.Combine(GameFolderPath ?? "", "Mods_Backup");
+            BackupCount = Directory.Exists(dir) ? Directory.GetDirectories(dir).Length : 0;
+        }
+        catch
+        {
+            BackupCount = 0;
+        }
     }
 
     private CancellationTokenSource? _installCts;
@@ -814,6 +869,118 @@ public partial class MainViewModel : ObservableObject
         RefreshProfiles();
         SelectedProfile = string.Empty;
         StatusMessage = "Profile deleted.";
+    }
+
+    // ---------- Backups (корзина) ----------
+
+    partial void OnShowBackupsChanged(bool value)
+    {
+        if (value)
+            RefreshBackups();
+    }
+
+    [RelayCommand]
+    private void ToggleBackups()
+    {
+        ShowBackups = !ShowBackups;
+        if (ShowBackups)
+        {
+            RefreshBackups();
+            StatusMessage = BackupCount == 0 ? "No backups yet." : $"Backups: {BackupCount}. Select one to restore or delete.";
+        }
+    }
+
+    private void RefreshBackups()
+    {
+        if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
+        {
+            Backups.Clear();
+            BackupCount = 0;
+            return;
+        }
+
+        var q = SearchText?.Trim();
+        Backups = new ObservableCollection<BackupItem>(_backupService.ScanBackups(GameFolderPath, q));
+        UpdateBackupCount();
+        if (SelectedBackup != null && Backups.All(b => b.FullPath != SelectedBackup.FullPath))
+            SelectedBackup = null;
+    }
+
+    [RelayCommand]
+    private void RestoreBackup(BackupItem? backup)
+    {
+        backup ??= SelectedBackup;
+        if (backup == null || string.IsNullOrEmpty(GameFolderPath))
+            return;
+        if (!EnsureGameNotRunning("restore backups"))
+            return;
+
+        try
+        {
+            _backupService.Restore(GameFolderPath, backup);
+            RefreshBackups();
+            RefreshMods();
+            AutoSaveProfile();
+            StatusMessage = $"Restored \"{backup.ModName}\" to Mods.";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("RestoreBackup failed", ex);
+            MessageBox.Show($"Failed to restore:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteBackupForever(BackupItem? backup)
+    {
+        backup ??= SelectedBackup;
+        if (backup == null)
+            return;
+
+        var result = MessageBox.Show($"Permanently delete backup \"{backup.BackupFolder}\"?\nThis cannot be undone.",
+            "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            _backupService.DeleteForever(backup);
+            if (SelectedBackup == backup)
+                SelectedBackup = null;
+            RefreshBackups();
+            StatusMessage = "Backup deleted forever.";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("DeleteBackupForever failed", ex);
+            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void DeleteAllBackups()
+    {
+        if (Backups.Count == 0)
+            return;
+
+        var result = MessageBox.Show($"Permanently delete all {Backups.Count} backups?\nThis cannot be undone.",
+            "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            foreach (var b in Backups.ToList())
+                _backupService.DeleteForever(b);
+            SelectedBackup = null;
+            RefreshBackups();
+            StatusMessage = "All backups deleted.";
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("DeleteAllBackups failed", ex);
+            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand]

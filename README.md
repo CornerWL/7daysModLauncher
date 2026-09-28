@@ -13,7 +13,8 @@ A Windows desktop application built with .NET 8 (WPF) for managing mods for 7 Da
 * Enable / disable mods (toggle-switch), Enable All / Disable All, bulk enable/disable/delete on multi-selection
 * Search by name / author / version, sort (Name/Author/Version/Status), filter (All/Enabled/Disabled)
 * Details pane: description, website link, folder path, per-mod actions
-* Safe delete: mods move to `Mods_Backup/<name>_<timestamp>` instead of permanent delete
+* Safe delete: mods move to `Mods_Backup/<name>_<timestamp>` instead of permanent delete.
+  `⛁ Backups` view: browse backups instead of mods, restore to Mods or delete forever
 * Guard: no install/toggle/delete/profile-apply while the game is running
 * Profiles: save / apply / delete, with a report of profile mods missing on disk
 * ▶ Play: launch the game directly from the launcher (7DaysToDie.exe / _EAC)
