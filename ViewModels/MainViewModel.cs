@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using SevenDaysModLauncher.Models;
 using SevenDaysModLauncher.Services;
@@ -195,14 +194,14 @@ public partial class MainViewModel : ObservableObject
 
         if (!nxm.Domain.Equals(NexusApiService.GameDomain, StringComparison.OrdinalIgnoreCase))
         {
-            MessageBox.Show($"This mod is for another game ({nxm.Domain}).\nThis launcher manages 7 Days to Die.",
-                "Wrong game", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Wrong game",
+                $"This mod is for another game ({nxm.Domain}).\nThis launcher manages 7 Days to Die.");
             return;
         }
 
         if (string.IsNullOrEmpty(GameFolderPath) || !Directory.Exists(GameFolderPath))
         {
-            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Select the game folder first.");
             return;
         }
         if (!EnsureGameNotRunning("install mods"))
@@ -235,7 +234,7 @@ public partial class MainViewModel : ObservableObject
             var (uris, linkError) = await svc.GetDownloadLinksAsync(cred, nxm.ModId, nxm.FileId.Value, nxm.Key, nxm.Expires);
             if (linkError != null || uris.Count == 0)
             {
-                MessageBox.Show(linkError ?? "No download link.", "Nexus", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Views.MessageDialog.Notify("Nexus", linkError ?? "No download link.");
                 StatusMessage = "NXM download failed.";
                 return;
             }
@@ -256,7 +255,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("NXM handle failed", ex);
-            MessageBox.Show($"NXM download failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"NXM download failed:\n{ex.Message}", true);
             StatusMessage = "NXM download failed.";
         }
         finally
@@ -290,10 +289,9 @@ public partial class MainViewModel : ObservableObject
             if (info?.HasUpdate == true)
             {
                 StatusMessage = $"New version {info.Tag} available (you have {info.Current}).";
-                var res = MessageBox.Show(
-                    $"New version {info.Tag} is out (you have {info.Current}).\nOpen the release page?",
-                    "Update available", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (res == MessageBoxResult.Yes && !string.IsNullOrWhiteSpace(info.Url))
+                if (Views.MessageDialog.Confirm("Update available",
+                        $"New version {info.Tag} is out (you have {info.Current}).\nOpen the release page?")
+                    && !string.IsNullOrWhiteSpace(info.Url))
                     Process.Start(new ProcessStartInfo { FileName = info.Url, UseShellExecute = true });
             }
         }
@@ -392,8 +390,8 @@ public partial class MainViewModel : ObservableObject
             else
             {
                 // Предложить пользователю выбрать вручную
-                var result = MessageBox.Show("Could not find the game folder automatically. Select it manually?", "Game folder not found", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result == MessageBoxResult.Yes)
+                if (Views.MessageDialog.Confirm("Game folder not found",
+                        "Could not find the game folder automatically. Select it manually?"))
                 {
                     BrowseGameFolder();
                 }
@@ -425,11 +423,8 @@ public partial class MainViewModel : ObservableObject
             GameFolderPath = NormalizeGameFolderPath(dialog.SelectedPath);
             if (!GamePathHelper.IsValidGameFolder(GameFolderPath))
             {
-                var res = MessageBox.Show(
-                    $"{GamePathHelper.GameExeName} not found in this folder.\n\n{GameFolderPath}\n\nUse this folder anyway?",
-                    "This doesn't look like the game folder",
-                    MessageBoxButton.YesNo, MessageBoxImage.Warning);
-                if (res != MessageBoxResult.Yes)
+                if (!Views.MessageDialog.Confirm("This doesn't look like the game folder",
+                        $"{GamePathHelper.GameExeName} not found in this folder.\n\n{GameFolderPath}\n\nUse this folder anyway?"))
                     return;
             }
             // Ensure required directories exist
@@ -456,7 +451,8 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
-            MessageBox.Show("Could not detect the game folder automatically. Please select it manually.", "Detection failed", MessageBoxButton.OK, MessageBoxImage.Information);
+            Views.MessageDialog.Notify("Detection failed",
+                "Could not detect the game folder automatically. Please select it manually.");
             StatusMessage = "Automatic detection failed.";
         }
     }
@@ -466,12 +462,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (!CanLaunchGame)
         {
-            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Select the game folder first.");
             return;
         }
         if (!_launcherService.TryLaunch(GameFolderPath, out var error))
         {
-            MessageBox.Show($"Failed to launch the game:\n{error}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to launch the game:\n{error}", true);
             StatusMessage = "Failed to launch the game.";
         }
         else
@@ -488,7 +484,7 @@ public partial class MainViewModel : ObservableObject
             var path = mod?.FolderPath;
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
             {
-                MessageBox.Show("Mod folder not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Views.MessageDialog.Notify("Error", "Mod folder not found.");
                 return;
             }
             Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
@@ -496,7 +492,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("OpenModFolder failed", ex);
-            MessageBox.Show($"Failed to open the folder:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to open the folder:\n{ex.Message}", true);
         }
     }
 
@@ -531,7 +527,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("SetAllModsEnabled failed", ex);
-            MessageBox.Show($"Failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed:\n{ex.Message}", true);
         }
     }
 
@@ -603,8 +599,8 @@ public partial class MainViewModel : ObservableObject
     {
         if (_launcherService.IsGameRunning())
         {
-            MessageBox.Show($"Cannot {action} while the game is running.\nClose 7 Days to Die and try again.",
-                "Game is running", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Game is running",
+                $"Cannot {action} while the game is running.\nClose 7 Days to Die and try again.");
             StatusMessage = "Wait until the game is closed.";
             return false;
         }
@@ -622,7 +618,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Select the game folder first.");
             return;
         }
         if (!EnsureGameNotRunning("install mods"))
@@ -651,7 +647,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Select the game folder first.");
             return;
         }
         if (!EnsureGameNotRunning("install mods"))
@@ -704,7 +700,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("Install failed", ex);
-            MessageBox.Show($"Failed to install mod:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to install mod:\n{ex.Message}", true);
             StatusMessage = "Failed to install mod.";
         }
         finally
@@ -718,7 +714,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Select the game folder first.");
             return;
         }
         if (!EnsureGameNotRunning("install mods"))
@@ -727,7 +723,7 @@ public partial class MainViewModel : ObservableObject
         var zipFiles = files.Where(f => Path.GetExtension(f).Equals(".zip", StringComparison.OrdinalIgnoreCase)).ToList();
         if (!zipFiles.Any())
         {
-            MessageBox.Show("Drop ZIP archives.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Drop ZIP archives.");
             return;
         }
 
@@ -743,8 +739,8 @@ public partial class MainViewModel : ObservableObject
         if (!EnsureGameNotRunning("delete mods"))
             return;
 
-        var result = MessageBox.Show($"Delete mod \"{mod.Name}\"?\n\nA backup copy will be kept in Mods_Backup.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!Views.MessageDialog.Confirm("Confirm",
+                $"Delete mod \"{mod.Name}\"?\n\nA backup copy will be kept in Mods_Backup."))
             return;
 
         try
@@ -761,7 +757,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("DeleteMod failed", ex);
-            MessageBox.Show($"Failed to delete mod:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to delete mod:\n{ex.Message}", true);
         }
     }
 
@@ -787,7 +783,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("ToggleMod failed", ex);
-            MessageBox.Show($"Failed to toggle mod:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to toggle mod:\n{ex.Message}", true);
         }
     }
 
@@ -796,7 +792,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(GameFolderPath))
         {
-            MessageBox.Show("Select the game folder first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Error", "Select the game folder first.");
             return;
         }
 
@@ -830,7 +826,7 @@ public partial class MainViewModel : ObservableObject
         var profile = _profileService.LoadProfile(SelectedProfile);
         if (profile == null)
         {
-            MessageBox.Show("Failed to load the profile.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", "Failed to load the profile.", true);
             return;
         }
 
@@ -846,12 +842,12 @@ public partial class MainViewModel : ObservableObject
                     : $"Profile \"{SelectedProfile}\" is already in sync.")
                 : $"Profile applied (moved: {result.Moved}), missing on disk ({result.Missing.Count}): {string.Join(", ", result.Missing.Take(5))}{(result.Missing.Count > 5 ? "..." : "")}";
             if (result.Missing.Count > 0)
-                MessageBox.Show($"Profile partially applied.\nMods not found on disk:\n• {string.Join("\n• ", result.Missing)}",
-                    "Some mods are missing", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Views.MessageDialog.Notify("Some mods are missing",
+                    $"Profile partially applied.\nMods not found on disk:\n• {string.Join("\n• ", result.Missing)}");
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to apply profile:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to apply profile:\n{ex.Message}", true);
         }
     }
 
@@ -861,8 +857,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(SelectedProfile))
             return;
 
-        var result = MessageBox.Show($"Delete profile \"{SelectedProfile}\"?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!Views.MessageDialog.Confirm("Confirm", $"Delete profile \"{SelectedProfile}\"?"))
             return;
 
         _profileService.DeleteProfile(SelectedProfile);
@@ -926,7 +921,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("RestoreBackup failed", ex);
-            MessageBox.Show($"Failed to restore:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to restore:\n{ex.Message}", true);
         }
     }
 
@@ -937,9 +932,8 @@ public partial class MainViewModel : ObservableObject
         if (backup == null)
             return;
 
-        var result = MessageBox.Show($"Permanently delete backup \"{backup.BackupFolder}\"?\nThis cannot be undone.",
-            "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (result != MessageBoxResult.Yes)
+        if (!Views.MessageDialog.Confirm("Confirm",
+                $"Permanently delete backup \"{backup.BackupFolder}\"?\nThis cannot be undone."))
             return;
 
         try
@@ -953,7 +947,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("DeleteBackupForever failed", ex);
-            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to delete:\n{ex.Message}", true);
         }
     }
 
@@ -963,9 +957,8 @@ public partial class MainViewModel : ObservableObject
         if (Backups.Count == 0)
             return;
 
-        var result = MessageBox.Show($"Permanently delete all {Backups.Count} backups?\nThis cannot be undone.",
-            "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (result != MessageBoxResult.Yes)
+        if (!Views.MessageDialog.Confirm("Confirm",
+                $"Permanently delete all {Backups.Count} backups?\nThis cannot be undone."))
             return;
 
         try
@@ -979,7 +972,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("DeleteAllBackups failed", ex);
-            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to delete:\n{ex.Message}", true);
         }
     }
 
@@ -999,16 +992,16 @@ public partial class MainViewModel : ObservableObject
         var withId = _allMods.Where(m => m.NexusModId != null).ToList();
         if (withId.Count == 0)
         {
-            MessageBox.Show("No mods linked to Nexus yet.\nInstall via the ⬇ Nexus button or an nxm:// link first.",
-                "No linked mods", MessageBoxButton.OK, MessageBoxImage.Information);
+            Views.MessageDialog.Notify("No linked mods",
+                "No mods linked to Nexus yet.\nInstall via the Nexus button or an nxm:// link first.");
             return;
         }
 
         var cred = LoadNexusCredential();
         if (cred.IsEmpty)
         {
-            MessageBox.Show("Log in via the ⬇ Nexus button first (OAuth or API key).",
-                "Not logged in", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Views.MessageDialog.Notify("Not logged in",
+                "Log in via the Nexus button first (OAuth or API key).");
             return;
         }
 
@@ -1079,7 +1072,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("OpenWebsite failed", ex);
-            MessageBox.Show($"Failed to open the link:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to open the link:\n{ex.Message}", true);
         }
     }
 
@@ -1113,7 +1106,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("SetSelectedModsEnabled failed", ex);
-            MessageBox.Show($"Failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed:\n{ex.Message}", true);
         }
     }
 
@@ -1126,9 +1119,8 @@ public partial class MainViewModel : ObservableObject
         if (!EnsureGameNotRunning("delete mods"))
             return;
 
-        var result = MessageBox.Show($"Delete {list.Count} mods?\nBackup copies will be kept in Mods_Backup.",
-            "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (result != MessageBoxResult.Yes)
+        if (!Views.MessageDialog.Confirm("Confirm",
+                $"Delete {list.Count} mods?\nBackup copies will be kept in Mods_Backup."))
             return;
 
         try
@@ -1147,7 +1139,7 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             AppLogger.Error("DeleteSelectedMods failed", ex);
-            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            Views.MessageDialog.Notify("Error", $"Failed to delete:\n{ex.Message}", true);
         }
     }
 }

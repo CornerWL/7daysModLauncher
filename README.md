@@ -71,8 +71,8 @@ release_single/7daysModLauncher.exe  (~68 MB, no DLLs needed, no runtime needed)
 Push a tag to build and attach the exe to a GitHub Release automatically:
 
 ```bash
-git tag v1.1.2
-git push origin v1.1.2
+git tag v1.1.3
+git push origin v1.1.3
 ```
 
 ### Installer (optional)

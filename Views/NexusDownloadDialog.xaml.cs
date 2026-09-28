@@ -1,7 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using System.Windows;
-using MessageBox = System.Windows.MessageBox;
 using SevenDaysModLauncher.Models;
 using SevenDaysModLauncher.Services;
 
@@ -137,8 +136,8 @@ public partial class NexusDownloadDialog : Window
         {
             // Нет ClientId — честно показываем, ждем данные от Nexus Support
             AuthStatusText.Text = ex.Message;
-            MessageBox.Show($"{ex.Message}\n\nFallback: paste a personal API key (My Account → API Access).",
-                "OAuth not configured", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageDialog.Notify("OAuth not configured",
+                $"{ex.Message}\n\nFallback: paste a personal API key (My Account → API Access).");
         }
         catch (OperationCanceledException)
         {
@@ -182,16 +181,16 @@ public partial class NexusDownloadDialog : Window
         var modId = NexusApiService.ParseModId(ModLinkBox.Text);
         if (modId == null)
         {
-            MessageBox.Show("Link not understood. Paste a link like\nhttps://www.nexusmods.com/7daystodie/mods/10784\nor just the mod id.",
-                "Link", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageDialog.Notify("Link",
+                "Link not understood. Paste a link like\nhttps://www.nexusmods.com/7daystodie/mods/10784\nor just the mod id.");
             return;
         }
 
         var domain = NexusApiService.ParseGameDomain(ModLinkBox.Text);
         if (domain != null && domain != NexusApiService.GameDomain)
         {
-            MessageBox.Show($"This mod is for another game ({domain}). This launcher manages 7 Days to Die.",
-                "Wrong game", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageDialog.Notify("Wrong game",
+                $"This mod is for another game ({domain}). This launcher manages 7 Days to Die.");
             return;
         }
 
@@ -276,7 +275,7 @@ public partial class NexusDownloadDialog : Window
     {
         if (FilesList.SelectedItem is not FileRow row)
         {
-            MessageBox.Show("Select a file from the list.", "File", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageDialog.Notify("File", "Select a file from the list.");
             return;
         }
         if (_cred.IsEmpty || _currentModId == 0)
@@ -312,7 +311,7 @@ public partial class NexusDownloadDialog : Window
         catch (Exception ex)
         {
             AppLogger.Error("Nexus download failed", ex);
-            MessageBox.Show($"Download failed:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageDialog.Notify("Error", $"Download failed:\n{ex.Message}", true);
             DownloadStatusText.Text = "Download failed.";
         }
         finally
