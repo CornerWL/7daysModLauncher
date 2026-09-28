@@ -4,7 +4,8 @@
 
 A Windows desktop application built with .NET 8 (WPF) for managing mods for 7 Days to Die.
 
-<img width="1536" height="1024" alt="picture" src="https://github.com/user-attachments/assets/1f8422d8-f4a9-4680-bb65-5f090f3b7956" />
+<img width="1003" height="644" alt="image" src="https://github.com/user-attachments/assets/a6b1ebc9-95ea-4d2e-ba7a-46275d6679b6" />
+
 
 ## Features
 
